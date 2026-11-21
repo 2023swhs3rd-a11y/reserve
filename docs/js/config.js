@@ -5,5 +5,5 @@
  *    예) 'https://script.google.com/macros/s/AKfy..../exec'
  */
 window.APP_CONFIG = {
-  API_URL: 'https://script.google.com/macros/s/AKfycbxfsw2ZbbJ6XOTiTaSU7XHGpq3kt3fk3mB512Cc4l7A6i8n7rElPT7nZWG4kknlFpjxfg/exec'
+  API_URL: 'https://script.google.com/macros/s/AKfycbw_A89--lX0QBtViYpqJmym5YhXm1OKAp9o4p58QT0wZTu4rnDf1A4_jnWBoSFGTmm31A/exec'
 };
