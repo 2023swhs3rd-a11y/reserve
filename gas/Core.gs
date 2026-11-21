@@ -22,6 +22,7 @@ var Core = (function () {
   'use strict';
 
   var DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+  var STATE_VERSION = 2;
 
   function UserError(message) {
     this.name = 'UserError';
@@ -63,14 +64,17 @@ var Core = (function () {
   function defaultSettings() {
     var t = todayStr();
     return {
-      title: '상담 예약',
+      title: '봉일천고 진로진학상담 예약시스템',
       teacherName: '',
       schoolName: '',
       place: '',
       notice: '편한 날짜와 시간을 골라 주세요. 학생과 학부모님 모두 신청할 수 있어요.\n예약 후 일정 변경이 필요하면 [내 예약 확인]에서 취소하고 다시 신청해 주세요.',
-      dayStart: '08:00',
-      dayEnd: '17:00',
-      slotMinutes: 50,
+      dayStart: '08:00',      // 첫 상담 시작
+      lastStart: '16:00',     // 마지막 상담 시작
+      slotInterval: 60,       // 상담 시작 간격(분) → 매시 정각
+      slotMinutes: 50,        // 상담 한 번 길이(분)
+      resourceUrl: '',        // 진로진학자료실 주소
+      resourceLabel: '진로진학자료실',
       bookingStart: t,
       bookingEnd: addDays(t, 30),
       weekdays: [1, 2, 3, 4, 5],
@@ -90,12 +94,13 @@ var Core = (function () {
     };
   }
 
-  // 08:00~17:00, 50분 단위 → 시작 시각 목록 (끝나는 시각이 dayEnd 를 넘지 않는 칸만)
+  // 기본: 08:00부터 16:00까지 매시 정각 시작, 한 번에 50분 → 08:00~08:50 … 16:00~16:50 (9칸)
   function slotList(settings) {
-    var s = toMin(settings.dayStart), e = toMin(settings.dayEnd), step = +settings.slotMinutes;
+    var s = toMin(settings.dayStart), e = toMin(settings.lastStart);
+    var step = +settings.slotInterval, dur = +settings.slotMinutes;
     var out = [];
-    if (!(step >= 10) || isNaN(s) || isNaN(e)) return out;
-    for (var m = s; m + step <= e; m += step) out.push({ start: toHHMM(m), end: toHHMM(m + step) });
+    if (!(step >= 10) || !(dur >= 10) || isNaN(s) || isNaN(e)) return out;
+    for (var m = s; m <= e && out.length < 48; m += step) out.push({ start: toHHMM(m), end: toHHMM(m + dur) });
     return out;
   }
 
@@ -110,12 +115,25 @@ var Core = (function () {
     var st = store.loadState();
     if (!st) {
       var settings = defaultSettings();
-      st = { version: 1, settings: settings, template: defaultTemplate(settings), overrides: {}, auth: null };
+      st = { version: STATE_VERSION, settings: settings, template: defaultTemplate(settings), overrides: {}, auth: null };
       store.saveState(st);
     }
     // 새 설정 항목이 추가된 경우 기본값으로 채움
     var def = defaultSettings();
     Object.keys(def).forEach(function (k) { if (st.settings[k] === undefined) st.settings[k] = def[k]; });
+    if ((st.version || 1) < 2) {
+      // v2: 50분 연속 칸 → 매시 정각 시작(08~16시)으로 바뀜. 시간 칸 구성이 달라져 기본 시간을 새로 만듦
+      delete st.settings.dayEnd;
+      st.settings.dayStart = def.dayStart;
+      st.settings.lastStart = def.lastStart;
+      st.settings.slotInterval = def.slotInterval;
+      st.settings.slotMinutes = def.slotMinutes;
+      if (st.settings.title === '상담 예약') st.settings.title = def.title;
+      st.template = defaultTemplate(st.settings);
+      st.overrides = {};
+      st.version = 2;
+      store.saveState(st);
+    }
     st.overrides = st.overrides || {};
     st.template = st.template || defaultTemplate(st.settings);
     return st;
@@ -206,7 +224,8 @@ var Core = (function () {
       title: s.title, teacherName: s.teacherName, schoolName: s.schoolName, place: s.place,
       notice: s.notice, topics: s.topics, retention: s.retention,
       bookingStart: s.bookingStart, bookingEnd: s.bookingEnd,
-      slotMinutes: s.slotMinutes, today: todayStr()
+      slotMinutes: s.slotMinutes, today: todayStr(),
+      resourceUrl: s.resourceUrl, resourceLabel: s.resourceLabel
     };
   }
 
@@ -234,10 +253,18 @@ var Core = (function () {
     });
     if (i.notice !== undefined) s.notice = str(i.notice, 2000);
     if (i.dayStart !== undefined) s.dayStart = str(i.dayStart);
-    if (i.dayEnd !== undefined) s.dayEnd = str(i.dayEnd);
+    if (i.lastStart !== undefined) s.lastStart = str(i.lastStart);
     if (i.slotMinutes !== undefined) s.slotMinutes = parseInt(i.slotMinutes, 10);
-    if (isNaN(toMin(s.dayStart)) || isNaN(toMin(s.dayEnd)) || toMin(s.dayStart) >= toMin(s.dayEnd)) fail('상담 시작/종료 시각을 확인해 주세요.');
-    if (!(s.slotMinutes >= 10 && s.slotMinutes <= 240)) fail('상담 단위(분)는 10~240 사이여야 합니다.');
+    if (i.slotInterval !== undefined) s.slotInterval = parseInt(i.slotInterval, 10);
+    if (isNaN(toMin(s.dayStart)) || isNaN(toMin(s.lastStart)) || toMin(s.dayStart) > toMin(s.lastStart)) fail('첫 상담/마지막 상담 시작 시각을 확인해 주세요.');
+    if (!(s.slotInterval >= 10 && s.slotInterval <= 240)) fail('상담 시작 간격(분)은 10~240 사이여야 합니다.');
+    if (!(s.slotMinutes >= 10 && s.slotMinutes <= s.slotInterval)) fail('상담 시간(분)은 10분 이상, 시작 간격 이하여야 합니다.');
+    if (toMin(s.lastStart) + s.slotMinutes > 24 * 60) fail('마지막 상담이 자정을 넘어요.');
+    if (i.resourceUrl !== undefined) {
+      s.resourceUrl = str(i.resourceUrl, 500);
+      if (s.resourceUrl && !/^https?:\/\/\S+$/i.test(s.resourceUrl)) fail('자료실 주소는 http:// 또는 https:// 로 시작해야 해요.');
+    }
+    if (i.resourceLabel !== undefined) s.resourceLabel = str(i.resourceLabel, 40) || '진로진학자료실';
     if (i.bookingStart !== undefined) s.bookingStart = str(i.bookingStart);
     if (i.bookingEnd !== undefined) s.bookingEnd = str(i.bookingEnd);
     if (!parseYmd(s.bookingStart) || !parseYmd(s.bookingEnd) || s.bookingStart > s.bookingEnd) fail('예약 기간을 확인해 주세요.');
