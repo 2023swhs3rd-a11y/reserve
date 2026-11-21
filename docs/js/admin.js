@@ -49,6 +49,7 @@
     A.periods = JSON.parse(JSON.stringify(A.st.settings.periods || []));
     if (!A.view) { var t = U.parse(A.st.today); A.view = { y: t.y, m: t.m }; }
     $('pwWarn').classList.toggle('hidden', !A.st.usingInitialPassword);
+    $('verWarn').classList.toggle('hidden', A.st.coreVersion >= 3);
     renderAll();
   }
 

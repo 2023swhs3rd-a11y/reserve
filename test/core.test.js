@@ -100,7 +100,7 @@ test('조회와 취소', () => {
   Core.handle('public.cancel', { studentId: '20315', name: '김하늘', phone: '010-1234-5678', date, start: '13:00' }, st);
   assert.deepStrictEqual(st.sent.map((m) => m.subject.split(' - ')[0]), ['[봉일천고 진로진학상담] 새 예약', '[봉일천고 진로진학상담] 예약 취소']);
   assert.strictEqual(st.sent[0].to, 'jungsooj@korea.kr');
-  assert.match(st.sent[0].subject, /13시 김하늘$/);
+  assert.match(st.sent[0].subject, /13:00 김하늘$/);
   assert.ok(!/2\.4등급/.test(st.sent[0].body));
   const av = Core.handle('public.availability', { from: date, to: date }, st).days[date];
   assert.strictEqual(av.find((x) => x.start === '13:00').status, 'open');

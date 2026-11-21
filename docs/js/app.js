@@ -19,6 +19,7 @@
     try {
       var cfg = await U.api('public.config');
       S.settings = cfg.settings;
+      if (!(cfg.coreVersion >= 3)) console.warn('서버(Apps Script) 코드가 예전 버전입니다. gas/Core.gs 를 새로 붙여 넣고 새 버전으로 배포하세요.');
       applySettings();
       var t = U.parse(S.settings.today);
       var start = S.settings.bookingStart > S.settings.today ? U.parse(S.settings.bookingStart) : t;
@@ -125,7 +126,7 @@
       var booked = x.status === 'booked';
       var on = S.slot && S.slot.start === x.start;
       return '<button type="button" class="slot' + (on ? ' on' : '') + '" data-start="' + x.start + '"' + (booked ? ' disabled' : '') + '>' +
-        U.hour(x.start) + '<small>' + x.start + '~' + x.end + ' · ' + (booked ? '마감' : on ? '선택했어요' : '예약 가능') + '</small></button>';
+        x.start + '<small>~' + x.end + ' · ' + (booked ? '마감' : on ? '선택했어요' : '예약 가능') + '</small></button>';
     }).join('') : '<div class="empty-msg">이 날은 예약 가능한 시간이 없어요.</div>';
     $('toForm').disabled = !S.slot;
   }
@@ -152,7 +153,7 @@
 
   $('toForm').onclick = function () {
     if (!S.slot) return;
-    $('pickedLabel').textContent = U.pretty(S.date) + ' ' + U.hour(S.slot.start) + ' (' + S.slot.start + '~' + S.slot.end + ')';
+    $('pickedLabel').textContent = U.pretty(S.date) + ' ' + S.slot.start + ' ~ ' + S.slot.end;
     goStep(2);
     setTimeout(function () { $('studentId').focus(); }, 300);
   };
@@ -231,7 +232,7 @@
     var teacher = r.teacherName || (S.settings && S.settings.teacherName);
     var place = r.place || (S.settings && S.settings.place);
     el.innerHTML =
-      '<div class="when">' + U.esc(U.pretty(r.date)) + '<br>' + U.esc(U.hour(r.start)) + ' <small>(' + U.esc(r.start) + '~' + U.esc(r.end) + ')</small></div>' +
+      '<div class="when">' + U.esc(U.pretty(r.date)) + '<br>' + U.esc(r.start) + ' ~ ' + U.esc(r.end) + '</div>' +
       '<dl>' +
       '<dt>학번 · 성명</dt><dd>' + U.esc(r.studentId) + ' ' + U.esc(r.name) + '</dd>' +
       '<dt>학부모 참여</dt><dd>' + (r.parent ? '함께해요' : '학생만 참여') + '</dd>' +

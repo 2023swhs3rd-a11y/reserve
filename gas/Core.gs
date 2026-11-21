@@ -24,6 +24,7 @@ var Core = (function () {
 
   var DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
   var STATE_VERSION = 3;
+  var CORE_VERSION = 3;  // 서버(Apps Script) 코드 버전 — 화면이 예전 서버와 연결됐는지 확인용
   var OLD_TOPICS = ['진로·진학', '학업·성적', '수시·정시 지원 전략', '학교생활기록부', '교우관계', '학교생활 적응', '건강·심리'];
 
   function UserError(message) {
@@ -244,15 +245,11 @@ var Core = (function () {
   }
 
   // ---------- 담당자 알림 ----------
-  function hourLabel(hhmm) {
-    var p = String(hhmm).split(':');
-    return (+p[1] ? p[0] + '시 ' + p[1] + '분' : p[0] + '시');
-  }
 
   function notifyTeacher(store, settings, kind, r) {
     var to = String(settings.notifyEmail || '').trim();
     if (!to || typeof store.notify !== 'function') return;
-    var subject = '[봉일천고 진로진학상담] ' + kind + ' - ' + r.date + '(' + DAY_NAMES[weekday(r.date)] + ') ' + hourLabel(r.start) + ' ' + r.name;
+    var subject = '[봉일천고 진로진학상담] ' + kind + ' - ' + r.date + '(' + DAY_NAMES[weekday(r.date)] + ') ' + r.start + ' ' + r.name;
     var topics = (r.topics || []).slice();
     if (r.topicEtc) topics.push('직접 입력: ' + r.topicEtc);
     var body = [
@@ -349,7 +346,7 @@ var Core = (function () {
     // ===== 공개 =====
     'public.config': function (p, store) {
       var st = getState(store);
-      return { settings: publicSettings(st.settings) };
+      return { settings: publicSettings(st.settings), coreVersion: CORE_VERSION };
     },
 
     'public.availability': function (p, store) {
@@ -462,7 +459,8 @@ var Core = (function () {
       return {
         settings: st.settings, template: st.template, overrides: st.overrides,
         slots: slotList(st.settings), reservations: res, today: todayStr(),
-        usingInitialPassword: !(st.auth && st.auth.hash)
+        usingInitialPassword: !(st.auth && st.auth.hash),
+        coreVersion: CORE_VERSION
       };
     },
 
@@ -589,6 +587,7 @@ var Core = (function () {
 
   return {
     handle: handle,
+    VERSION: CORE_VERSION,
     UserError: UserError,
     slotList: slotList,
     defaultSettings: defaultSettings,
