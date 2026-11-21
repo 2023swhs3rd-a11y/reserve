@@ -35,6 +35,8 @@
     var p = parse(s);
     return p.y + '년 ' + p.m + '월 ' + p.d + '일 (' + DAY[dow(s)] + ')';
   }
+  // '09:00' → '09시', '09:30' → '09시 30분'
+  function hour(hm) { var p = String(hm).split(':'); return +p[1] ? p[0] + '시 ' + p[1] + '분' : p[0] + '시'; }
   function short(s) { var p = parse(s); return p.m + '/' + p.d + '(' + DAY[dow(s)] + ')'; }
   function addMonths(y, m, n) { var t = (y * 12 + (m - 1)) + n; return { y: Math.floor(t / 12), m: (t % 12) + 1 }; }
   function daysIn(y, m) { return new Date(y, m, 0).getDate(); }
@@ -80,7 +82,7 @@
   }
 
   window.U = {
-    api: api, DAY: DAY, pad: pad, ymd: ymd, parse: parse, dow: dow, pretty: pretty, short: short,
+    api: api, DAY: DAY, pad: pad, ymd: ymd, parse: parse, dow: dow, pretty: pretty, short: short, hour: hour,
     addMonths: addMonths, daysIn: daysIn, toast: toast, esc: esc, formatPhone: formatPhone, download: download
   };
 })();

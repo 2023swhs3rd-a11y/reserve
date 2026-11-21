@@ -129,7 +129,7 @@
       '<h2 style="margin-top:0">' + U.esc(r.studentId + ' ' + r.name) + ' <span class="badge ' + r.status + '">' + STATUS[r.status] + '</span></h2>' +
       '<dl>' +
       row('일정', U.pretty(r.date) + ' ' + r.start + '~' + r.end) +
-      row('예약번호', r.code) + row('연락처', r.phone) + row('학부모 참여', r.parent ? '참여' : '불참') +
+      row('연락처', r.phone) + row('학부모 참여', r.parent ? '참여' : '불참') +
       row('문의 내용', (r.topics || []).join(', ')) + row('직접 입력', r.topicEtc) +
       row('교과 성적', r.gradeSchool) + row('모의고사 성적', r.gradeMock) +
       row('동의 일시', r.consentAt ? new Date(r.consentAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }) : '') +
@@ -170,11 +170,11 @@
 
   $('csvBtn').onclick = function () {
     var list = filteredRes();
-    var head = ['날짜', '시작', '종료', '학번', '성명', '연락처', '학부모참여', '문의내용', '직접입력', '교과성적', '모의고사성적', '상태', '메모', '예약번호', '동의일시', '신청일시'];
+    var head = ['날짜', '시작', '종료', '학번', '성명', '연락처', '학부모참여', '문의내용', '직접입력', '교과성적', '모의고사성적', '상태', '메모', '동의일시', '신청일시'];
     var q = function (v) { v = String(v === undefined || v === null ? '' : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
     var rows = list.map(function (r) {
       return [r.date, r.start, r.end, r.studentId, r.name, r.phone, r.parent ? '참여' : '불참', (r.topics || []).join(', '), r.topicEtc,
-        r.gradeSchool, r.gradeMock, STATUS[r.status], r.memo, r.code, r.consentAt, r.createdAt].map(q).join(',');
+        r.gradeSchool, r.gradeMock, STATUS[r.status], r.memo, r.consentAt, r.createdAt].map(q).join(',');
     });
     U.download('상담예약_' + A.st.today + '.csv', '﻿' + [head.map(q).join(',')].concat(rows).join('\r\n'), 'text/csv;charset=utf-8');
   };
@@ -498,6 +498,7 @@
     $('sBStart').value = s.bookingStart; $('sBEnd').value = s.bookingEnd;
     $('sStart').value = s.dayStart; $('sLast').value = s.lastStart; $('sInt').value = s.slotInterval; $('sMin').value = s.slotMinutes;
     $('sResUrl').value = s.resourceUrl || ''; $('sResLabel').value = s.resourceLabel || '';
+    $('sCPhone').value = s.contactPhone || ''; $('sCEmail').value = s.contactEmail || ''; $('sNotify').value = s.notifyEmail || '';
     $('sLead').value = s.minLeadHours; $('sMax').value = s.maxActivePerStudent; $('sRet').value = s.retention;
     $('sTopics').value = (s.topics || []).join('\n');
     $('sWeekdays').innerHTML = WD_ORDER.map(function (d) {
@@ -511,6 +512,7 @@
       notice: $('sNotice').value, bookingStart: $('sBStart').value, bookingEnd: $('sBEnd').value,
       dayStart: $('sStart').value, lastStart: $('sLast').value, slotInterval: +$('sInt').value, slotMinutes: +$('sMin').value,
       resourceUrl: $('sResUrl').value.trim(), resourceLabel: $('sResLabel').value.trim(),
+      contactPhone: $('sCPhone').value.trim(), contactEmail: $('sCEmail').value.trim(), notifyEmail: $('sNotify').value.trim(),
       minLeadHours: +$('sLead').value, maxActivePerStudent: +$('sMax').value, retention: $('sRet').value,
       topics: $('sTopics').value.split('\n').map(function (t) { return t.trim(); }).filter(Boolean),
       weekdays: qsa('#sWeekdays input:checked').map(function (x) { return +x.value; })

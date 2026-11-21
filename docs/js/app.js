@@ -32,16 +32,26 @@
 
   function applySettings() {
     var s = S.settings;
-    var title = s.title || '봉일천고 진로진학상담 예약시스템';
-    Array.prototype.forEach.call(document.querySelectorAll('.site-name'), function (el) { el.textContent = title; });
-    document.title = title;
+    // 기본 이름은 HTML에 이미 들어 있으므로, 선생님이 다른 이름을 정한 경우에만 바꿈 (제목 깜빡임 방지)
+    if (s.title && s.title !== '상담 예약' && s.title !== document.title) {
+      Array.prototype.forEach.call(document.querySelectorAll('.site-name'), function (el) { el.textContent = s.title; });
+      document.title = s.title;
+    }
+    var contact = [];
+    if (s.contactPhone) contact.push('☎ <a href="tel:' + U.esc(s.contactPhone.replace(/[^\d+]/g, '')) + '">' + U.esc(s.contactPhone) + '</a>');
+    if (s.contactEmail) contact.push('✉ <a href="mailto:' + U.esc(s.contactEmail) + '">' + U.esc(s.contactEmail) + '</a>');
+    Array.prototype.forEach.call(document.querySelectorAll('.contact'), function (el) {
+      el.innerHTML = contact.length ? '상담 관련 문의 · ' + contact.join(' · ') : '';
+      el.classList.toggle('hidden', !contact.length);
+    });
     Array.prototype.forEach.call(document.querySelectorAll('.res-link'), function (a) {
       if (s.resourceUrl) { a.href = s.resourceUrl; a.classList.remove('hidden'); }
       else a.classList.add('hidden');
     });
     Array.prototype.forEach.call(document.querySelectorAll('.res-label'), function (el) { el.textContent = s.resourceLabel || '진로진학자료실'; });
     var sub = [s.schoolName, s.teacherName ? s.teacherName + ' 선생님' : ''].filter(Boolean).join(' · ');
-    $('subtitle').textContent = sub || '편하게 이야기 나눠요';
+    $('subtitle').textContent = sub;
+    $('subtitle').classList.toggle('hidden', !sub);
     if (s.notice) { $('notice').textContent = s.notice; $('notice').classList.remove('hidden'); }
     $('slotMin').textContent = s.slotMinutes;
     $('retention').textContent = s.retention || '상담 종료 후 1년';
@@ -115,7 +125,7 @@
       var booked = x.status === 'booked';
       var on = S.slot && S.slot.start === x.start;
       return '<button type="button" class="slot' + (on ? ' on' : '') + '" data-start="' + x.start + '"' + (booked ? ' disabled' : '') + '>' +
-        x.start + ' ~ ' + x.end + '<small>' + (booked ? '예약 마감' : on ? '선택했어요' : '예약 가능') + '</small></button>';
+        U.hour(x.start) + '<small>' + x.start + '~' + x.end + ' · ' + (booked ? '마감' : on ? '선택했어요' : '예약 가능') + '</small></button>';
     }).join('') : '<div class="empty-msg">이 날은 예약 가능한 시간이 없어요.</div>';
     $('toForm').disabled = !S.slot;
   }
@@ -142,7 +152,7 @@
 
   $('toForm').onclick = function () {
     if (!S.slot) return;
-    $('pickedLabel').textContent = U.pretty(S.date) + ' ' + S.slot.start + ' ~ ' + S.slot.end;
+    $('pickedLabel').textContent = U.pretty(S.date) + ' ' + U.hour(S.slot.start) + ' (' + S.slot.start + '~' + S.slot.end + ')';
     goStep(2);
     setTimeout(function () { $('studentId').focus(); }, 300);
   };
@@ -221,9 +231,8 @@
     var teacher = r.teacherName || (S.settings && S.settings.teacherName);
     var place = r.place || (S.settings && S.settings.place);
     el.innerHTML =
-      '<div class="when">' + U.esc(U.pretty(r.date)) + '<br>' + U.esc(r.start) + ' ~ ' + U.esc(r.end) + '</div>' +
+      '<div class="when">' + U.esc(U.pretty(r.date)) + '<br>' + U.esc(U.hour(r.start)) + ' <small>(' + U.esc(r.start) + '~' + U.esc(r.end) + ')</small></div>' +
       '<dl>' +
-      '<dt>예약번호</dt><dd><span class="code">' + U.esc(r.code) + '</span></dd>' +
       '<dt>학번 · 성명</dt><dd>' + U.esc(r.studentId) + ' ' + U.esc(r.name) + '</dd>' +
       '<dt>학부모 참여</dt><dd>' + (r.parent ? '함께해요' : '학생만 참여') + '</dd>' +
       (teacher ? '<dt>상담 교사</dt><dd>' + U.esc(teacher) + ' 선생님</dd>' : '') +
@@ -235,18 +244,18 @@
   function downloadIcs(r) {
     var d = r.date.replace(/-/g, '');
     var t = function (hm) { return hm.replace(':', '') + '00'; };
-    var title = (r.title || '상담') + (r.teacherName ? ' (' + r.teacherName + ' 선생님)' : '');
+    var title = '봉일천고 진로진학상담';
     var lines = [
       'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//counsel-reserve//KO', 'CALSCALE:GREGORIAN',
       'BEGIN:VTIMEZONE', 'TZID:Asia/Seoul', 'BEGIN:STANDARD', 'DTSTART:19700101T000000', 'TZOFFSETFROM:+0900', 'TZOFFSETTO:+0900', 'TZNAME:KST', 'END:STANDARD', 'END:VTIMEZONE',
       'BEGIN:VEVENT',
-      'UID:' + r.code + '-' + d + '@counsel-reserve',
+      'UID:' + d + t(r.start) + '-' + r.studentId + '@bongilcheon-counsel',
       'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''),
       'DTSTART;TZID=Asia/Seoul:' + d + 'T' + t(r.start),
       'DTEND;TZID=Asia/Seoul:' + d + 'T' + t(r.end),
       'SUMMARY:' + title.replace(/[,;]/g, ' '),
       r.place ? 'LOCATION:' + r.place.replace(/[,;]/g, ' ') : '',
-      'DESCRIPTION:예약번호 ' + r.code,
+      'DESCRIPTION:' + (r.teacherName ? r.teacherName + ' 선생님 · ' : '') + '학번 ' + r.studentId + ' ' + r.name,
       'BEGIN:VALARM', 'TRIGGER:-PT30M', 'ACTION:DISPLAY', 'DESCRIPTION:상담 30분 전', 'END:VALARM',
       'END:VEVENT', 'END:VCALENDAR'
     ].filter(Boolean);
@@ -287,7 +296,7 @@
       box.innerHTML = res.reservations.map(function (r, i) {
         r.teacherName = res.teacherName; r.place = res.place;
         return '<div class="card"><div class="ticket" id="lk' + i + '"></div>' +
-          '<button type="button" class="btn danger small" data-cancel="' + U.esc(r.code) + '">이 예약 취소하기</button></div>';
+          '<button type="button" class="btn danger small" data-cancel="' + U.esc(r.date + '|' + r.start) + '">이 예약 취소하기</button></div>';
       }).join('');
       res.reservations.forEach(function (r, i) { renderTicket(r, $('lk' + i)); });
     } catch (ex) {
@@ -306,7 +315,8 @@
     }
     b.disabled = true;
     try {
-      await U.api('public.cancel', { code: b.dataset.cancel, studentId: lastLookup.studentId, phone: lastLookup.phone });
+      var ds = b.dataset.cancel.split('|');
+      await U.api('public.cancel', { date: ds[0], start: ds[1], studentId: lastLookup.studentId, name: lastLookup.name, phone: lastLookup.phone });
       U.toast('예약을 취소했어요.');
       await runLookup();
       try { await loadAvailability(); renderCalendar(); } catch (e2) { /* 무시 */ }

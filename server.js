@@ -47,7 +47,9 @@ const store = {
   withLock: (fn) => fn(),
   sha256: (t) => crypto.createHash('sha256').update(String(t), 'utf8').digest('hex'),
   randomId: () => crypto.randomUUID(),
-  initialPassword: () => process.env.ADMIN_PASSWORD || ''
+  initialPassword: () => process.env.ADMIN_PASSWORD || '',
+  // Node 서버는 메일 서버가 없어 알림을 콘솔에만 남김 (필요하면 여기에 SMTP 등을 연결)
+  notify: (to, subject) => console.log('[알림] ' + to + ' ← ' + subject)
 };
 
 const MIME = {

@@ -321,7 +321,7 @@ table.grid th.rowh { text-align: right; white-space: nowrap; }
     background: linear-gradient(to top, #fff 70%, rgba(255, 255, 255, 0));
   }
   .form-aside { margin-bottom: 0; }
-  .ticket dl { grid-template-columns: 84px 1fr; }
+  .ticket dl { grid-template-columns: 96px 1fr; }
 }
 
 /* ---------- PC (900px 이상) ---------- */
@@ -348,3 +348,7 @@ table.grid th.rowh { text-align: right; white-space: nowrap; }
   .foot { margin-top: 36px; }
 }
 .card { scroll-margin-top: 72px; }
+.ticket .when small { font-size: 15px; font-weight: 600; color: var(--muted); }
+.slot { font-size: 18px; }
+.slot small { font-size: 12px; margin-top: 2px; }
+.contact a { color: inherit; }
