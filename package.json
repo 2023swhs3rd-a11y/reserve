@@ -1,0 +1,12 @@
+{
+  "name": "counsel-reserve",
+  "version": "1.0.0",
+  "private": true,
+  "description": "달력 기반 학생·학부모 상담 예약 웹앱",
+  "scripts": {
+    "start": "node server.js",
+    "build:gas": "node scripts/build-gas.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=18" }
+}

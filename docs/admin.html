@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>상담 예약 관리</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗂️</text></svg>">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="wrap wide">
+    <!-- 로그인 -->
+    <section id="loginView" style="max-width:420px;margin:60px auto">
+      <header class="hero">
+        <span class="emoji" aria-hidden="true">🗂️</span>
+        <h1>상담 예약 관리</h1>
+        <p class="sub">선생님 전용 화면이에요</p>
+      </header>
+      <form class="card" id="loginForm">
+        <div class="field">
+          <label for="pw">관리자 비밀번호</label>
+          <input type="password" id="pw" autocomplete="current-password" required>
+        </div>
+        <button class="btn block" type="submit">들어가기</button>
+        <p class="hint" style="margin-top:12px">공용 컴퓨터에서는 사용 후 꼭 [로그아웃]을 눌러 주세요.</p>
+      </form>
+      <p class="foot"><a href="index.html">← 예약 화면으로</a></p>
+    </section>
+
+    <!-- 관리 -->
+    <section id="adminView" class="hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <h1 style="margin:6px 0;font-size:24px">🗂️ 상담 예약 관리</h1>
+        <div class="btn-row" style="flex:none">
+          <a class="btn ghost small" href="index.html" target="_blank" rel="noopener" style="flex:none">예약 화면 보기</a>
+          <button class="btn ghost small" id="logoutBtn" style="flex:none">로그아웃</button>
+        </div>
+      </div>
+      <div class="notice hidden" id="pwWarn">⚠ 아직 처음 비밀번호를 쓰고 있어요. [설정] 탭에서 새 비밀번호로 바꿔 주세요.</div>
+
+      <nav class="tabs left" id="adminTabs">
+        <button type="button" class="on" data-tab="res">📋 예약 현황</button>
+        <button type="button" data-tab="avail">🕒 상담 가능 시간</button>
+        <button type="button" data-tab="tt">📥 시간표 가져오기</button>
+        <button type="button" data-tab="set">⚙️ 설정</button>
+      </nav>
+
+      <!-- 예약 현황 -->
+      <div id="tab-res">
+        <div class="stat-row" id="stats"></div>
+        <div class="card">
+          <div class="toolbar">
+            <select id="resFilter">
+              <option value="upcoming">다가오는 예약</option>
+              <option value="past">지난 예약</option>
+              <option value="cancelled">취소된 예약</option>
+              <option value="all">전체</option>
+            </select>
+            <input type="text" id="resSearch" placeholder="학번·이름 검색">
+            <span style="flex:1"></span>
+            <button class="btn ghost small" id="csvBtn">⬇ 엑셀(CSV) 내려받기</button>
+            <button class="btn ghost small" id="reloadBtn">↻ 새로고침</button>
+          </div>
+          <div class="table-wrap"><table class="list" id="resTable"></table></div>
+        </div>
+        <div class="card">
+          <h2>🧹 개인정보 파기</h2>
+          <p class="hint" style="margin-top:-8px">보유 기간이 지난 예약은 지워 주세요. 선택한 날짜 <b>이전</b>의 예약(취소 포함)이 모두 삭제되며 되돌릴 수 없어요.</p>
+          <div class="toolbar" style="margin-top:10px">
+            <input type="date" id="purgeDate">
+            <button class="btn danger small" id="purgeBtn">이전 예약 삭제</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 상담 가능 시간 -->
+      <div id="tab-avail" class="hidden">
+        <div class="card">
+          <h2>📅 주간 기본 시간</h2>
+          <p class="hint" style="margin-top:-8px">매주 반복되는 상담 가능 시간이에요. 칸을 눌러 열고 닫을 수 있어요. (초록 = 상담 가능) 드래그하면 여러 칸을 한 번에 바꿀 수 있어요.</p>
+          <div class="toolbar" style="margin-top:10px">
+            <button class="btn ghost small" id="tplAllOn">모두 열기</button>
+            <button class="btn ghost small" id="tplAllOff">모두 닫기</button>
+            <span style="flex:1"></span>
+            <button class="btn small" id="tplSave">주간 기본 시간 저장</button>
+          </div>
+          <div class="grid-wrap"><table class="grid" id="tplGrid"></table></div>
+        </div>
+
+        <div class="card">
+          <h2>🗓️ 날짜별 조정</h2>
+          <p class="hint" style="margin-top:-8px">특정 날짜만 시간을 추가하거나 막고 싶을 때 날짜를 눌러 바꿔 주세요. (시험, 출장, 행사 등)</p>
+          <div class="row2" style="margin-top:12px;align-items:start">
+            <div>
+              <div class="cal-head">
+                <button type="button" class="icon-btn" id="aPrev" aria-label="이전 달">‹</button>
+                <strong id="aMonth"></strong>
+                <button type="button" class="icon-btn" id="aNext" aria-label="다음 달">›</button>
+              </div>
+              <div class="cal admin-cal" id="aCal"></div>
+            </div>
+            <div id="dayEditor"><div class="empty-msg">왼쪽 달력에서 날짜를 골라 주세요.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 시간표 가져오기 -->
+      <div id="tab-tt" class="hidden">
+        <div class="card">
+          <h2>📥 컴시간 시간표 가져오기</h2>
+          <ol class="hint" style="margin-top:-6px;padding-left:20px">
+            <li>컴시간 프로그램(또는 컴시간 알리미)에서 <b>교사 시간표</b>를 엑셀(.xlsx/.xls)로 저장해 주세요. 내 시간표 한 장이든, 전체 교사 시간표든 괜찮아요.</li>
+            <li>아래에 파일을 올리면 수업이 있는 교시를 찾아 보여 드려요.</li>
+            <li>교시별 시각을 확인한 뒤 [주간 기본 시간에 적용]을 누르면, 수업 시간을 뺀 나머지가 상담 가능 시간으로 채워져요.</li>
+          </ol>
+          <p class="hint">엑셀 파일이 없다면 <a href="#" id="ttTemplate">빈 시간표 양식(CSV)</a>을 내려받아 수업이 있는 칸에 아무 글자나 적어 올려도 돼요. 컴시간 앱에서 직접 불러오는 기능은 공식 API가 없어 지원하지 않아요.</p>
+
+          <label class="drop" id="drop" for="ttFile" style="display:block;margin-top:14px">
+            <div style="font-size:30px">📄</div>
+            <b>여기를 눌러 파일 선택</b> 또는 파일을 끌어다 놓기<br>
+            <span class="hint">.xlsx · .xls · .csv</span>
+            <input type="file" id="ttFile" accept=".xlsx,.xls,.csv" class="hidden">
+          </label>
+
+          <div id="ttResult" class="hidden" style="margin-top:18px">
+            <div class="row2">
+              <div class="field" id="ttSheetWrap"><label for="ttSheet">시트</label><select id="ttSheet"></select></div>
+              <div class="field" id="ttWhoWrap"><label for="ttWho">교사(시간표)</label><select id="ttWho"></select></div>
+            </div>
+            <h3>찾은 수업 시간 <span class="opt">빨간 칸 = 수업 (눌러서 고칠 수 있어요)</span></h3>
+            <div class="grid-wrap"><table class="grid" id="ttGrid"></table></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>⏰ 교시별 시각</h2>
+          <p class="hint" style="margin-top:-8px">우리 학교 일과표에 맞게 고쳐 주세요. 수업 시각과 겹치는 상담 칸은 자동으로 닫혀요.</p>
+          <div class="periods" id="periods" style="margin-top:12px"></div>
+          <div class="toolbar" style="margin-top:12px">
+            <button class="btn ghost small" id="addPeriod">+ 교시 추가</button>
+            <button class="btn ghost small" id="delPeriod">− 마지막 교시 삭제</button>
+            <span style="flex:1"></span>
+            <button class="btn ghost small" id="savePeriods">교시 시각 저장</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>✅ 적용하기</h2>
+          <p class="hint" style="margin-top:-8px">미리보기: 초록 = 상담 가능, 빨강 = 수업과 겹침</p>
+          <div class="grid-wrap" style="margin-top:10px"><table class="grid" id="ttPreview"></table></div>
+          <button class="btn block" id="ttApply" style="margin-top:14px" disabled>주간 기본 시간에 적용하고 저장</button>
+        </div>
+      </div>
+
+      <!-- 설정 -->
+      <div id="tab-set" class="hidden">
+        <form class="card" id="setForm">
+          <h2>🏫 기본 정보</h2>
+          <div class="row2">
+            <div class="field"><label for="sTitle">화면 제목</label><input type="text" id="sTitle" maxlength="100"></div>
+            <div class="field"><label for="sTeacher">상담 교사 이름</label><input type="text" id="sTeacher" maxlength="100" placeholder="예) 김선생"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label for="sSchool">학교 / 학급</label><input type="text" id="sSchool" maxlength="100" placeholder="예) 행복고등학교 2학년 3반"></div>
+            <div class="field"><label for="sPlace">상담 장소</label><input type="text" id="sPlace" maxlength="100" placeholder="예) 본관 2층 상담실"></div>
+          </div>
+          <div class="field"><label for="sNotice">안내 문구</label><textarea id="sNotice" maxlength="2000"></textarea></div>
+
+          <h2 style="margin-top:22px">📆 예약 규칙</h2>
+          <div class="row2">
+            <div class="field"><label for="sBStart">예약 받는 기간 (시작)</label><input type="date" id="sBStart"></div>
+            <div class="field"><label for="sBEnd">예약 받는 기간 (끝)</label><input type="date" id="sBEnd"></div>
+          </div>
+          <div class="field">
+            <span class="label">상담 요일</span>
+            <div class="wd-checks chips" id="sWeekdays"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label for="sStart">하루 상담 시작</label><input type="time" id="sStart" step="300"></div>
+            <div class="field"><label for="sEnd">하루 상담 끝</label><input type="time" id="sEnd" step="300"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label for="sMin">상담 단위 (분)</label><input type="number" id="sMin" min="10" max="240"></div>
+            <div class="field"><label for="sLead">예약 마감 (상담 몇 시간 전)</label><input type="number" id="sLead" min="0" max="240"></div>
+          </div>
+          <p class="hint" style="margin-top:-8px" id="slotPreview"></p>
+          <div class="row2">
+            <div class="field"><label for="sMax">학번당 동시에 잡을 수 있는 예약 수</label><input type="number" id="sMax" min="0" max="20"><p class="hint">0 = 제한 없음</p></div>
+            <div class="field"><label for="sRet">개인정보 보유 기간 (안내 문구)</label><input type="text" id="sRet" maxlength="100"></div>
+          </div>
+          <div class="field">
+            <label for="sTopics">문의 내용 선택지 <span class="opt">한 줄에 하나씩</span></label>
+            <textarea id="sTopics" rows="6"></textarea>
+            <p class="hint">신청 화면에는 이 선택지와 함께 '직접 입력' 칸이 항상 보여요.</p>
+          </div>
+          <button class="btn block" type="submit">설정 저장</button>
+        </form>
+
+        <form class="card" id="pwForm">
+          <h2>🔐 관리자 비밀번호 바꾸기</h2>
+          <div class="row2">
+            <div class="field"><label for="pw1">새 비밀번호 (8자 이상)</label><input type="password" id="pw1" autocomplete="new-password" minlength="8"></div>
+            <div class="field"><label for="pw2">새 비밀번호 확인</label><input type="password" id="pw2" autocomplete="new-password" minlength="8"></div>
+          </div>
+          <button class="btn ghost block" type="submit">비밀번호 바꾸기</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal" class="modal-bg hidden"><div class="modal" id="modalBody" role="dialog" aria-modal="true"></div></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/timetable.js"></script>
+  <script src="vendor/xlsx.full.min.js" defer></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
