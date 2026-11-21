@@ -6,7 +6,20 @@
   <title>봉일천고 진로진학상담 예약시스템</title>
   <meta name="description" content="봉일천고등학교 진로진학상담 예약">
   <meta name="theme-color" content="#fff8f1">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌷</text></svg>">
+  <!-- 카카오톡·SNS 링크 미리보기 -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="봉일천고등학교 진로진학부">
+  <meta property="og:title" content="봉일천고 진로진학상담 예약시스템">
+  <meta property="og:description" content="달력에서 원하는 날짜와 시간을 골라 진로진학상담을 신청하세요. 학생·학부모 모두 신청할 수 있습니다.">
+  <meta property="og:url" content="https://2023swhs3rd-a11y.github.io/reserve/">
+  <meta property="og:image" content="https://2023swhs3rd-a11y.github.io/reserve/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="봉일천고 진로진학상담 예약시스템">
+  <meta property="og:locale" content="ko_KR">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -14,7 +27,7 @@
   <!-- 상단 바 (PC: 메뉴 포함 / 모바일: 사이트명만) -->
   <header class="topbar no-print">
     <div class="topbar-in">
-      <a class="brand" href="./"><span aria-hidden="true">🌷</span><span class="site-name">봉일천고 진로진학상담 예약시스템</span></a>
+      <a class="brand" href="./"><span aria-hidden="true">📚</span><span class="site-name">봉일천고 진로진학상담 예약시스템</span></a>
       <nav class="topnav pc-only" aria-label="주 메뉴">
         <button type="button" class="on" data-tab="book">상담 신청</button>
         <button type="button" data-tab="lookup">내 예약 확인</button>
@@ -58,7 +71,7 @@
         <div class="card slot-card is-empty" id="slotCard">
           <h2><span class="num">2</span><span id="slotTitle">시간을 골라 주세요</span></h2>
           <div class="slots" id="slots"><div class="empty-msg">📅 먼저 달력에서 날짜를 골라 주세요.</div></div>
-          <p class="hint">상담은 매시 정각(08:00, 09:00 …)에 시작하고, 한 번에 <span id="slotMin">50</span>분이에요.</p>
+          <p class="hint">상담은 매시 정각(08:00, 09:00 …)에 시작하고, 한 번에 <span id="slotMin">50</span>분입니다.</p>
           <div class="sticky-action">
             <button type="button" class="btn block" id="toForm" disabled>다음 단계로</button>
           </div>
@@ -69,15 +82,15 @@
       <form id="step2" class="hidden form-grid" novalidate>
         <aside class="form-aside">
           <div class="summary-pill">
-            <span>📅 <strong id="pickedLabel"></strong></span>
+            <span class="picked"><span aria-hidden="true">📅</span> <strong id="pickedLabel"></strong></span>
             <button type="button" class="btn ghost small" id="backToPick">날짜·시간 바꾸기</button>
           </div>
           <div class="card pc-only aside-card">
             <h3 style="margin-top:0">신청 전에 확인해 주세요</h3>
             <ul class="hint" style="padding-left:18px;margin:0">
-              <li>학번·성명·연락처는 [내 예약 확인]에 그대로 쓰여요.</li>
-              <li>성적은 선택 항목이에요. 적어 주시면 상담 준비에 도움이 돼요.</li>
-              <li>개인정보 동의가 있어야 신청할 수 있어요.</li>
+              <li>학번·성명·연락처는 [내 예약 확인]에 그대로 쓰입니다.</li>
+              <li>성적은 선택 항목입니다. 적어 주시면 상담 준비에 도움이 됩니다.</li>
+              <li>개인정보 동의가 있어야 신청할 수 있습니다.</li>
             </ul>
             <button type="submit" class="btn block submit-btn" style="margin-top:16px">상담 예약하기</button>
           </div>
@@ -106,18 +119,18 @@
           <div class="field">
             <span class="label">학부모 참여 여부<span class="req">필수</span></span>
             <div class="chips" role="radiogroup">
-              <label class="chip"><input type="radio" name="parent" value="yes"><span>👨‍👩‍👧 학부모님도 함께해요</span></label>
-              <label class="chip"><input type="radio" name="parent" value="no"><span>🙋 학생만 참여해요</span></label>
+              <label class="chip"><input type="radio" name="parent" value="yes"><span>👨‍👩‍👧 학부모 함께 참여</span></label>
+              <label class="chip"><input type="radio" name="parent" value="no"><span>🙋 학생만 참여</span></label>
             </div>
           </div>
 
           <div class="field">
-            <span class="label">문의 내용<span class="req">필수</span><span class="opt">여러 개 골라도 돼요</span></span>
+            <span class="label">문의 내용<span class="req">필수</span><span class="opt">여러 개 선택할 수 있습니다</span></span>
             <div class="chips" id="topics"></div>
             <textarea id="topicEtc" maxlength="500" placeholder="직접 입력 (상담받고 싶은 내용을 자유롭게 적어 주세요)" style="margin-top:10px"></textarea>
           </div>
 
-          <h3>성적 정보 <span class="opt">선택 · 상담 준비에 도움이 돼요</span></h3>
+          <h3>성적 정보 <span class="opt">선택 · 상담 준비에 도움이 됩니다</span></h3>
           <div class="row2">
             <div class="field">
               <label for="gradeSchool">교과 성적<span class="opt">선택</span></label>
@@ -154,8 +167,8 @@
         <div class="card">
           <div class="done-top">
             <div class="big" aria-hidden="true">🎉</div>
-            <h2>상담 예약이 완료되었어요!</h2>
-            <p class="hint">아래 일정을 꼭 확인해 주세요. 이 화면을 캡처해 두면 편해요.</p>
+            <h2>상담 예약이 완료되었습니다!</h2>
+            <p class="hint">아래 일정을 꼭 확인해 주세요. 이 화면을 캡처해 두면 편리합니다.</p>
           </div>
           <div class="ticket" id="ticket"></div>
           <div class="btn-row no-print">

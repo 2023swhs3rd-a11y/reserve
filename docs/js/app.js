@@ -50,7 +50,7 @@
       else a.classList.add('hidden');
     });
     Array.prototype.forEach.call(document.querySelectorAll('.res-label'), function (el) { el.textContent = s.resourceLabel || '진로진학자료실'; });
-    var sub = [s.schoolName, s.teacherName ? s.teacherName + ' 선생님' : ''].filter(Boolean).join(' · ');
+    var sub = [s.schoolName, '진로진학부'].filter(Boolean).join(' · ');
     $('subtitle').textContent = sub;
     $('subtitle').classList.toggle('hidden', !sub);
     if (s.notice) { $('notice').textContent = s.notice; $('notice').classList.remove('hidden'); }
@@ -102,7 +102,7 @@
     }
     $('calendar').innerHTML = html;
     if (!anyOpen && !Object.keys(S.days).length) {
-      $('calendar').insertAdjacentHTML('beforeend', '<div class="empty-msg" style="grid-column:1/-1">아직 예약할 수 있는 시간이 없어요. 조금 뒤에 다시 확인해 주세요.</div>');
+      $('calendar').insertAdjacentHTML('beforeend', '<div class="empty-msg" style="grid-column:1/-1">아직 예약할 수 있는 시간이 없습니다. 조금 뒤에 다시 확인해 주세요.</div>');
     }
   }
 
@@ -126,8 +126,8 @@
       var booked = x.status === 'booked';
       var on = S.slot && S.slot.start === x.start;
       return '<button type="button" class="slot' + (on ? ' on' : '') + '" data-start="' + x.start + '"' + (booked ? ' disabled' : '') + '>' +
-        x.start + '<small>~' + x.end + ' · ' + (booked ? '마감' : on ? '선택했어요' : '예약 가능') + '</small></button>';
-    }).join('') : '<div class="empty-msg">이 날은 예약 가능한 시간이 없어요.</div>';
+        x.start + '<small>~' + x.end + ' · ' + (booked ? '마감' : on ? '선택됨' : '예약 가능') + '</small></button>';
+    }).join('') : '<div class="empty-msg">이 날은 예약 가능한 시간이 없습니다.</div>';
     $('toForm').disabled = !S.slot;
   }
 
@@ -153,7 +153,7 @@
 
   $('toForm').onclick = function () {
     if (!S.slot) return;
-    $('pickedLabel').textContent = U.pretty(S.date) + ' ' + S.slot.start + ' ~ ' + S.slot.end;
+    $('pickedLabel').innerHTML = U.esc(U.pretty(S.date)) + '<br><span class="nowrap">' + S.slot.start + ' ~ ' + S.slot.end + '</span>';
     goStep(2);
     setTimeout(function () { $('studentId').focus(); }, 300);
   };
@@ -229,14 +229,13 @@
   function renderTicket(r, el) {
     var topics = (r.topics || []).slice();
     if (r.topicEtc) topics.push('직접 입력: ' + r.topicEtc);
-    var teacher = r.teacherName || (S.settings && S.settings.teacherName);
     var place = r.place || (S.settings && S.settings.place);
     el.innerHTML =
       '<div class="when">' + U.esc(U.pretty(r.date)) + '<br>' + U.esc(r.start) + ' ~ ' + U.esc(r.end) + '</div>' +
       '<dl>' +
       '<dt>학번 · 성명</dt><dd>' + U.esc(r.studentId) + ' ' + U.esc(r.name) + '</dd>' +
-      '<dt>학부모 참여</dt><dd>' + (r.parent ? '함께해요' : '학생만 참여') + '</dd>' +
-      (teacher ? '<dt>상담 교사</dt><dd>' + U.esc(teacher) + ' 선생님</dd>' : '') +
+      '<dt>학부모 참여</dt><dd>' + (r.parent ? '학부모 함께 참여' : '학생만 참여') + '</dd>' +
+      '<dt>담당</dt><dd>진로진학부</dd>' +
       (place ? '<dt>장소</dt><dd>' + U.esc(place) + '</dd>' : '') +
       '<dt>문의 내용</dt><dd>' + U.esc(topics.join(', ')) + '</dd>' +
       '</dl>';
@@ -256,7 +255,7 @@
       'DTEND;TZID=Asia/Seoul:' + d + 'T' + t(r.end),
       'SUMMARY:' + title.replace(/[,;]/g, ' '),
       r.place ? 'LOCATION:' + r.place.replace(/[,;]/g, ' ') : '',
-      'DESCRIPTION:' + (r.teacherName ? r.teacherName + ' 선생님 · ' : '') + '학번 ' + r.studentId + ' ' + r.name,
+      'DESCRIPTION:진로진학부 · 학번 ' + r.studentId + ' ' + r.name,
       'BEGIN:VALARM', 'TRIGGER:-PT30M', 'ACTION:DISPLAY', 'DESCRIPTION:상담 30분 전', 'END:VALARM',
       'END:VEVENT', 'END:VCALENDAR'
     ].filter(Boolean);
@@ -291,7 +290,7 @@
     try {
       var res = await U.api('public.lookup', lastLookup);
       if (!res.reservations.length) {
-        box.innerHTML = '<div class="card empty-msg">예정된 예약이 없어요. 입력한 정보를 다시 확인해 주세요.</div>';
+        box.innerHTML = '<div class="card empty-msg">예정된 예약이 없습니다. 입력한 정보를 다시 확인해 주세요.</div>';
         return;
       }
       box.innerHTML = res.reservations.map(function (r, i) {
@@ -311,14 +310,14 @@
     if (!b) return;
     if (b.dataset.confirm !== '1') {
       b.dataset.confirm = '1';
-      b.textContent = '정말 취소할까요? 한 번 더 누르면 취소돼요';
+      b.textContent = '정말 취소하시겠습니까? 한 번 더 누르면 취소됩니다';
       return;
     }
     b.disabled = true;
     try {
       var ds = b.dataset.cancel.split('|');
       await U.api('public.cancel', { date: ds[0], start: ds[1], studentId: lastLookup.studentId, name: lastLookup.name, phone: lastLookup.phone });
-      U.toast('예약을 취소했어요.');
+      U.toast('예약을 취소했습니다.');
       await runLookup();
       try { await loadAvailability(); renderCalendar(); } catch (e2) { /* 무시 */ }
     } catch (ex) {
