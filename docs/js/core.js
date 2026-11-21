@@ -16,12 +16,14 @@
  *   sha256(text)              -> hex 문자열
  *   randomId()                -> 무작위 문자열
  *   initialPassword()         -> 최초 관리자 비밀번호(환경변수/스크립트 속성) 또는 ''
+ *   notify(to, subject, body) -> (선택) 담당자 알림 메일 발송. 실패해도 예약은 유지
  */
 var Core = (function () {
   'use strict';
 
   var DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
-  var STATE_VERSION = 2;
+  var STATE_VERSION = 3;
+  var OLD_TOPICS = ['진로·진학', '학업·성적', '수시·정시 지원 전략', '학교생활기록부', '교우관계', '학교생활 적응', '건강·심리'];
 
   function UserError(message) {
     this.name = 'UserError';
@@ -68,18 +70,21 @@ var Core = (function () {
       schoolName: '',
       place: '',
       notice: '편한 날짜와 시간을 골라 주세요. 학생과 학부모님 모두 신청할 수 있어요.\n예약 후 일정 변경이 필요하면 [내 예약 확인]에서 취소하고 다시 신청해 주세요.',
+      contactPhone: '031-950-0107',
+      contactEmail: 'jungsooj@korea.kr',
+      notifyEmail: 'jungsooj@korea.kr',  // 새 예약·취소 알림 받을 주소 (쉼표로 여러 개)
       dayStart: '08:00',      // 첫 상담 시작
       lastStart: '16:00',     // 마지막 상담 시작
       slotInterval: 60,       // 상담 시작 간격(분) → 매시 정각
       slotMinutes: 50,        // 상담 한 번 길이(분)
-      resourceUrl: '',        // 진로진학자료실 주소
+      resourceUrl: 'https://2023swhs3rd-a11y.github.io/jinhak/', // 진로진학자료실 주소
       resourceLabel: '진로진학자료실',
       bookingStart: t,
       bookingEnd: addDays(t, 30),
       weekdays: [1, 2, 3, 4, 5],
       minLeadHours: 3,
       maxActivePerStudent: 1,
-      topics: ['진로·진학', '학업·성적', '수시·정시 지원 전략', '학교생활기록부', '교우관계', '학교생활 적응', '건강·심리'],
+      topics: ['과목선택', '대학 및 학과선택', '수시정시지원전략', '전공적합 활동 추천'],
       retention: '상담 종료 후 1년',
       periods: [
         { no: 1, start: '08:40', end: '09:30' },
@@ -131,6 +136,14 @@ var Core = (function () {
       st.template = defaultTemplate(st.settings);
       st.overrides = {};
       st.version = 2;
+      store.saveState(st);
+    }
+    if (st.version < 3) {
+      // v3: 문의 항목·자료실·문의처 기본값 변경 (선생님이 바꾸지 않은 값만 교체)
+      if (JSON.stringify(st.settings.topics) === JSON.stringify(OLD_TOPICS)) st.settings.topics = def.topics;
+      if (st.settings.title === '상담 예약') st.settings.title = def.title;
+      if (!st.settings.resourceUrl) st.settings.resourceUrl = def.resourceUrl;
+      st.version = 3;
       store.saveState(st);
     }
     st.overrides = st.overrides || {};
@@ -211,7 +224,7 @@ var Core = (function () {
 
   function publicReservation(r) {
     return {
-      code: r.code, date: r.date, start: r.start, end: r.end,
+      date: r.date, start: r.start, end: r.end,
       dayName: DAY_NAMES[weekday(r.date)],
       studentId: r.studentId, name: r.name, parent: r.parent,
       topics: r.topics, topicEtc: r.topicEtc, status: r.status
@@ -224,8 +237,35 @@ var Core = (function () {
       notice: s.notice, topics: s.topics, retention: s.retention,
       bookingStart: s.bookingStart, bookingEnd: s.bookingEnd,
       slotMinutes: s.slotMinutes, today: todayStr(),
-      resourceUrl: s.resourceUrl, resourceLabel: s.resourceLabel
+      resourceUrl: s.resourceUrl, resourceLabel: s.resourceLabel,
+      contactPhone: s.contactPhone, contactEmail: s.contactEmail
     };
+  }
+
+  // ---------- 담당자 알림 ----------
+  function hourLabel(hhmm) {
+    var p = String(hhmm).split(':');
+    return (+p[1] ? p[0] + '시 ' + p[1] + '분' : p[0] + '시');
+  }
+
+  function notifyTeacher(store, settings, kind, r) {
+    var to = String(settings.notifyEmail || '').trim();
+    if (!to || typeof store.notify !== 'function') return;
+    var subject = '[봉일천고 진로진학상담] ' + kind + ' - ' + r.date + '(' + DAY_NAMES[weekday(r.date)] + ') ' + hourLabel(r.start) + ' ' + r.name;
+    var topics = (r.topics || []).slice();
+    if (r.topicEtc) topics.push('직접 입력: ' + r.topicEtc);
+    var body = [
+      kind === '새 예약' ? '새 상담 예약이 들어왔어요.' : '상담 예약이 취소되었어요.',
+      '',
+      '일정: ' + r.date + '(' + DAY_NAMES[weekday(r.date)] + ') ' + r.start + '~' + r.end,
+      '학번/성명: ' + r.studentId + ' ' + r.name,
+      '연락처: ' + r.phone,
+      '학부모 참여: ' + (r.parent ? '참여' : '불참'),
+      '문의 내용: ' + topics.join(', '),
+      '',
+      '성적 등 자세한 내용은 관리자 화면에서 확인해 주세요.'
+    ].join('\n');
+    try { store.notify(to, subject, body); } catch (e) { /* 알림 실패는 예약에 영향 없음 */ }
   }
 
   // ---------- 관리자 인증 ----------
@@ -251,6 +291,14 @@ var Core = (function () {
       if (i[k] !== undefined) s[k] = str(i[k], 100);
     });
     if (i.notice !== undefined) s.notice = str(i.notice, 2000);
+    if (i.contactPhone !== undefined) s.contactPhone = str(i.contactPhone, 40);
+    if (i.contactEmail !== undefined) s.contactEmail = str(i.contactEmail, 100);
+    if (i.notifyEmail !== undefined) {
+      s.notifyEmail = str(i.notifyEmail, 300);
+      var bad = s.notifyEmail.split(',').map(function (x) { return x.trim(); }).filter(Boolean)
+        .filter(function (x) { return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x); });
+      if (bad.length) fail('알림 받을 이메일 주소를 확인해 주세요: ' + bad[0]);
+    }
     if (i.dayStart !== undefined) s.dayStart = str(i.dayStart);
     if (i.lastStart !== undefined) s.lastStart = str(i.lastStart);
     if (i.slotMinutes !== undefined) s.slotMinutes = parseInt(i.slotMinutes, 10);
@@ -359,6 +407,7 @@ var Core = (function () {
           createdAt: nowIso, memo: ''
         };
         store.addReservation(r);
+        notifyTeacher(store, st.settings, '새 예약', r);
         var out = publicReservation(r);
         out.teacherName = st.settings.teacherName;
         out.place = st.settings.place;
@@ -377,20 +426,25 @@ var Core = (function () {
         return r.studentId === studentId && r.name === name && r.phone === phone && r.date >= today && r.status !== 'cancelled';
       }).sort(function (a, b) { return (a.date + a.start) < (b.date + b.start) ? -1 : 1; });
       var st = getState(store);
-      return { reservations: list.map(publicReservation), teacherName: st.settings.teacherName, place: st.settings.place };
+      return { reservations: list.map(publicReservation), teacherName: st.settings.teacherName, place: st.settings.place, title: st.settings.title };
     },
 
+    // 예약번호 없이: 학번+성명+연락처 + 날짜·시각이 모두 맞아야 취소
     'public.cancel': function (p, store) {
-      var code = str(p.code, 10).toUpperCase();
       var studentId = str(p.studentId, 10).replace(/\s/g, '');
+      var name = str(p.name, 30);
       var phone = normPhone(p.phone);
+      var date = str(p.date), start = str(p.start);
+      if (!studentId || !name || !phone || !date || !start) fail('예약 정보를 확인해 주세요.');
       return store.withLock(function () {
         var r = store.listReservations().filter(function (x) {
-          return x.code === code && x.studentId === studentId && x.phone === phone && x.status !== 'cancelled';
+          return x.studentId === studentId && x.name === name && x.phone === phone &&
+            x.date === date && x.start === start && x.status !== 'cancelled';
         })[0];
         if (!r) fail('예약을 찾을 수 없어요.');
         if (r.date < todayStr()) fail('지난 예약은 취소할 수 없어요.');
         store.updateReservation(r.id, { status: 'cancelled', memo: (r.memo ? r.memo + ' / ' : '') + '신청자 취소 ' + new Date().toISOString().slice(0, 10) });
+        notifyTeacher(store, getState(store).settings, '예약 취소', r);
         return { ok: true };
       });
     },

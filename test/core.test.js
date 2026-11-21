@@ -7,7 +7,10 @@ const Core = require('../docs/js/core.js');
 
 function memStore(initPw = 'first-pass') {
   let state = null; let res = [];
+  const sent = [];
   return {
+    sent,
+    notify: (to, subject, body) => sent.push({ to, subject, body }),
     loadState: () => (state ? JSON.parse(JSON.stringify(state)) : null),
     saveState: (s) => { state = JSON.parse(JSON.stringify(s)); },
     listReservations: () => res.map((r) => ({ ...r })),
@@ -26,7 +29,7 @@ function nextWeekday(from, wd) { let d = addDays(from, 2); while (new Date(d + '
 
 const base = (date, start, extra = {}) => ({
   date, start, studentId: '20315', name: '김하늘', phone: '01012345678', parent: true,
-  topics: ['진로·진학'], topicEtc: '', consent: true, ...extra
+  topics: ['과목선택'], topicEtc: '', consent: true, ...extra
 });
 
 test('slots: 08~16시 매시 정각 시작, 50분 → 9칸', () => {
@@ -45,6 +48,8 @@ test('v1 데이터(50분 연속 칸) → v2 자동 전환', () => {
   const s = Core.handle('admin.state', { password: 'first-pass' }, st);
   assert.strictEqual(s.settings.title, '봉일천고 진로진학상담 예약시스템');
   assert.strictEqual(s.settings.dayEnd, undefined);
+  assert.deepStrictEqual(s.settings.topics, ['과목선택', '대학 및 학과선택', '수시정시지원전략', '전공적합 활동 추천']);
+  assert.strictEqual(s.settings.resourceUrl, 'https://2023swhs3rd-a11y.github.io/jinhak/');
   assert.strictEqual(s.slots.length, 9);
   assert.strictEqual(s.template[1].length, 9);
   assert.deepStrictEqual(s.overrides, {});
@@ -62,7 +67,7 @@ test('예약 → 마감 표시, 중복 예약 차단, 학번당 1건 제한', ()
   const st = memStore();
   const date = nextWeekday(todayStr(), 2);
   const r = Core.handle('public.reserve', base(date, '09:00'), st).reservation;
-  assert.match(r.code, /^[A-Z2-9]{6}$/);
+  assert.ok(!('code' in r), '예약번호는 화면에 내보내지 않음');
   assert.strictEqual(r.end, '09:50');
   const av = Core.handle('public.availability', { from: date, to: date }, st).days[date];
   assert.strictEqual(av.find((x) => x.start === '09:00').status, 'booked');
@@ -91,7 +96,12 @@ test('조회와 취소', () => {
   const lk = Core.handle('public.lookup', { studentId: '20315', name: '김하늘', phone: '010-1234-5678' }, st);
   assert.strictEqual(lk.reservations.length, 1);
   assert.strictEqual(Core.handle('public.lookup', { studentId: '20315', name: '김하늘', phone: '010-0000-0000' }, st).reservations.length, 0);
-  Core.handle('public.cancel', { code: r.code, studentId: '20315', phone: '010-1234-5678' }, st);
+  assert.throws(() => Core.handle('public.cancel', { studentId: '20315', name: '김하늘', phone: '010-1234-5678', date, start: '14:00' }, st), /찾을 수 없어요/);
+  Core.handle('public.cancel', { studentId: '20315', name: '김하늘', phone: '010-1234-5678', date, start: '13:00' }, st);
+  assert.deepStrictEqual(st.sent.map((m) => m.subject.split(' - ')[0]), ['[봉일천고 진로진학상담] 새 예약', '[봉일천고 진로진학상담] 예약 취소']);
+  assert.strictEqual(st.sent[0].to, 'jungsooj@korea.kr');
+  assert.match(st.sent[0].subject, /13시 김하늘$/);
+  assert.ok(!/2\.4등급/.test(st.sent[0].body));
   const av = Core.handle('public.availability', { from: date, to: date }, st).days[date];
   assert.strictEqual(av.find((x) => x.start === '13:00').status, 'open');
 });
@@ -142,4 +152,20 @@ test('gas/Core.gs 가 docs/js/core.js 와 같음', () => {
   const a = fs.readFileSync(path.join(root, 'docs/js/core.js'), 'utf8');
   const b = fs.readFileSync(path.join(root, 'gas/Core.gs'), 'utf8');
   assert.ok(b.endsWith(a), 'npm run build:gas 를 실행하세요');
+});
+
+test('알림 이메일: 비우면 미발송, 잘못된 주소 거부', () => {
+  const st = memStore();
+  assert.throws(() => Core.handle('admin.saveSettings', { password: 'first-pass', settings: { notifyEmail: 'abc' } }, st), /이메일/);
+  Core.handle('admin.saveSettings', { password: 'first-pass', settings: { notifyEmail: '' } }, st);
+  const date = nextWeekday(todayStr(), 5);
+  Core.handle('public.reserve', base(date, '10:00'), st);
+  assert.strictEqual(st.sent.length, 0);
+});
+
+test('알림 실패해도 예약은 성공', () => {
+  const st = memStore();
+  st.notify = () => { throw new Error('quota'); };
+  const date = nextWeekday(todayStr(), 2);
+  assert.ok(Core.handle('public.reserve', base(date, '11:00'), st).reservation);
 });

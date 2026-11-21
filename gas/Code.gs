@@ -16,12 +16,14 @@ var HEADERS = ['예약번호', '상태', '날짜', '시작', '종료', '학번',
 var STATUS_KO = { booked: '예약', done: '완료', cancelled: '취소' };
 var STATUS_EN = { '예약': 'booked', '완료': 'done', '취소': 'cancelled' };
 
-// 최초 1회: 편집기에서 이 함수를 선택해 ▶실행 하면 시트가 만들어집니다.
+// 최초 1회(그리고 코드 업데이트 후 1회): 편집기에서 이 함수를 선택해 ▶실행 하세요.
+// 시트를 만들고, 메일 발송 권한을 승인받습니다.
 // 관리자 비밀번호는 [프로젝트 설정 > 스크립트 속성]에 ADMIN_PASSWORD 로 넣어 주세요.
 function setup() {
   resSheet_();
   cfgSheet_();
   Core.handle('public.config', {}, makeStore_());
+  MailApp.getRemainingDailyQuota(); // 메일 발송 권한 승인용
   Logger.log('준비 완료! 이제 [배포 > 새 배포 > 웹 앱]으로 배포하세요.');
 }
 
@@ -138,6 +140,11 @@ function makeStore_() {
       return bytes.map(function (b) { return ((b + 256) % 256).toString(16).replace(/^(.)$/, '0$1'); }).join('');
     },
     randomId: function () { return Utilities.getUuid(); },
+    notify: function (to, subject, body) {
+      // 하루 발송 한도(일반 계정 약 100통)를 넘으면 조용히 건너뜀
+      if (MailApp.getRemainingDailyQuota() < 1) return;
+      MailApp.sendEmail({ to: to, subject: subject, body: body, name: '봉일천고 진로진학상담 예약' });
+    },
     initialPassword: function () {
       return PropertiesService.getScriptProperties().getProperty('ADMIN_PASSWORD') || '';
     }

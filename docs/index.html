@@ -26,7 +26,7 @@
   <main class="wrap page">
     <header class="hero">
       <h1 class="site-name" id="title">봉일천고 진로진학상담 예약시스템</h1>
-      <p class="sub" id="subtitle">편하게 이야기 나눠요</p>
+      <p class="sub hidden" id="subtitle"></p>
       <div class="notice hidden" id="notice"></div>
     </header>
 
@@ -58,7 +58,7 @@
         <div class="card slot-card is-empty" id="slotCard">
           <h2><span class="num">2</span><span id="slotTitle">시간을 골라 주세요</span></h2>
           <div class="slots" id="slots"><div class="empty-msg">📅 먼저 달력에서 날짜를 골라 주세요.</div></div>
-          <p class="hint">상담은 매시 정각에 시작하고, 한 번에 <span id="slotMin">50</span>분이에요.</p>
+          <p class="hint">상담은 매시 정각(08시, 09시 …)에 시작하고, 한 번에 <span id="slotMin">50</span>분이에요.</p>
           <div class="sticky-action">
             <button type="button" class="btn block" id="toForm" disabled>다음 단계로</button>
           </div>
@@ -162,6 +162,7 @@
             <button type="button" class="btn ghost" id="icsBtn">📆 내 캘린더에 추가</button>
             <button type="button" class="btn ghost" onclick="window.print()">🖨️ 인쇄·PDF 저장</button>
           </div>
+          <p class="hint contact" style="text-align:center;margin:14px 0 0"></p>
           <a class="btn ghost block res-link hidden no-print" target="_blank" rel="noopener" style="margin-top:10px">📚 상담 전에 <span class="res-label">진로진학자료실</span> 둘러보기</a>
           <div style="margin-top:10px" class="no-print">
             <button type="button" class="btn block" id="againBtn">처음 화면으로</button>
@@ -185,7 +186,7 @@
       <div id="lookupResult"></div>
     </section>
 
-    <p class="foot no-print">상담 관련 문의는 담당 선생님께 해 주세요.</p>
+    <p class="foot no-print contact">상담 관련 문의 · ☎ <a href="tel:0319500107">031-950-0107</a> · ✉ <a href="mailto:jungsooj@korea.kr">jungsooj@korea.kr</a></p>
   </main>
 
   <!-- 모바일 하단 메뉴 -->

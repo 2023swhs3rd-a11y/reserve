@@ -168,6 +168,15 @@
           </div>
           <div class="field"><label for="sNotice">안내 문구</label><textarea id="sNotice" maxlength="2000"></textarea></div>
           <div class="row2">
+            <div class="field"><label for="sCPhone">상담 문의 전화</label><input type="text" id="sCPhone" maxlength="40" placeholder="031-950-0107"></div>
+            <div class="field"><label for="sCEmail">상담 문의 이메일</label><input type="text" id="sCEmail" maxlength="100" placeholder="이메일 주소" inputmode="email"></div>
+          </div>
+          <div class="field">
+            <label for="sNotify">🔔 새 예약·취소 알림 받을 이메일</label>
+            <input type="text" id="sNotify" maxlength="300" placeholder="이메일 주소 (여러 개는 쉼표로)" inputmode="email">
+            <p class="hint">학생이 예약하거나 취소하면 이 주소로 메일이 가요. 비워 두면 알림을 보내지 않아요. (Google Apps Script로 운영할 때만 발송)</p>
+          </div>
+          <div class="row2">
             <div class="field"><label for="sResUrl">진로진학자료실 주소</label><input type="text" id="sResUrl" maxlength="500" placeholder="https://..." inputmode="url"><p class="hint">넣으면 학생 화면 메뉴와 완료 화면에 링크가 보여요. 비워 두면 숨겨져요.</p></div>
             <div class="field"><label for="sResLabel">자료실 메뉴 이름</label><input type="text" id="sResLabel" maxlength="40" placeholder="진로진학자료실"></div>
           </div>
