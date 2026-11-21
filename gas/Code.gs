@@ -28,7 +28,7 @@ function setup() {
 }
 
 function doGet() {
-  return ContentService.createTextOutput('상담예약 API가 동작 중입니다.');
+  return ContentService.createTextOutput('상담예약 API가 동작 중입니다. (서버 코드 버전 ' + Core.VERSION + ')');
 }
 
 function doPost(e) {
