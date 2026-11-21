@@ -29,23 +29,45 @@ const base = (date, start, extra = {}) => ({
   topics: ['진로·진학'], topicEtc: '', consent: true, ...extra
 });
 
-test('slots: 08:00~17:00, 50분 → 10칸, 마지막 15:30~16:20', () => {
+test('slots: 08~16시 매시 정각 시작, 50분 → 9칸', () => {
   const s = Core.slotList(Core.defaultSettings());
-  assert.strictEqual(s.length, 10);
+  assert.strictEqual(s.length, 9);
   assert.deepStrictEqual(s[0], { start: '08:00', end: '08:50' });
-  assert.deepStrictEqual(s[9], { start: '15:30', end: '16:20' });
+  assert.deepStrictEqual(s[1], { start: '09:00', end: '09:50' });
+  assert.deepStrictEqual(s[8], { start: '16:00', end: '16:50' });
+});
+
+test('v1 데이터(50분 연속 칸) → v2 자동 전환', () => {
+  const st = memStore();
+  const old = Core.defaultSettings();
+  delete old.lastStart; delete old.slotInterval; old.dayEnd = '17:00'; old.title = '상담 예약';
+  st.saveState({ version: 1, settings: old, template: { 1: ['08:00', '08:50', '09:40'] }, overrides: { '2026-12-01': { '08:50': true } }, auth: null });
+  const s = Core.handle('admin.state', { password: 'first-pass' }, st);
+  assert.strictEqual(s.settings.title, '봉일천고 진로진학상담 예약시스템');
+  assert.strictEqual(s.settings.dayEnd, undefined);
+  assert.strictEqual(s.slots.length, 9);
+  assert.strictEqual(s.template[1].length, 9);
+  assert.deepStrictEqual(s.overrides, {});
+});
+
+test('설정: 자료실 주소 검증', () => {
+  const st = memStore();
+  assert.throws(() => Core.handle('admin.saveSettings', { password: 'first-pass', settings: { resourceUrl: 'javascript:alert(1)' } }, st), /자료실/);
+  const r = Core.handle('admin.saveSettings', { password: 'first-pass', settings: { resourceUrl: 'https://example.com/a' } }, st);
+  assert.strictEqual(r.settings.resourceUrl, 'https://example.com/a');
+  assert.strictEqual(Core.handle('public.config', {}, st).settings.resourceUrl, 'https://example.com/a');
 });
 
 test('예약 → 마감 표시, 중복 예약 차단, 학번당 1건 제한', () => {
   const st = memStore();
   const date = nextWeekday(todayStr(), 2);
-  const r = Core.handle('public.reserve', base(date, '08:50'), st).reservation;
+  const r = Core.handle('public.reserve', base(date, '09:00'), st).reservation;
   assert.match(r.code, /^[A-Z2-9]{6}$/);
-  assert.strictEqual(r.end, '09:40');
+  assert.strictEqual(r.end, '09:50');
   const av = Core.handle('public.availability', { from: date, to: date }, st).days[date];
-  assert.strictEqual(av.find((x) => x.start === '08:50').status, 'booked');
-  assert.throws(() => Core.handle('public.reserve', base(date, '08:50', { studentId: '10101' }), st), /다른 분이 예약/);
-  assert.throws(() => Core.handle('public.reserve', base(date, '09:40'), st), /이미 예약된 상담/);
+  assert.strictEqual(av.find((x) => x.start === '09:00').status, 'booked');
+  assert.throws(() => Core.handle('public.reserve', base(date, '09:00', { studentId: '10101' }), st), /다른 분이 예약/);
+  assert.throws(() => Core.handle('public.reserve', base(date, '10:00'), st), /이미 예약된 상담/);
   // 공개 응답에 연락처·성적 미포함
   assert.ok(!('phone' in r) && !('gradeSchool' in r));
 });
@@ -88,10 +110,10 @@ test('관리자: 비밀번호, 주간 시간, 날짜 조정', () => {
   Core.handle('admin.saveTemplate', { password: pw, template: tpl }, st);
   let av = Core.handle('public.availability', { from: date, to: date }, st).days[date];
   assert.deepStrictEqual(av.map((x) => x.start), ['08:00']);
-  // 그 날만 16:20 은 칸이 아님(무시), 15:30 열고 08:00 닫기
-  Core.handle('admin.saveOverrides', { password: pw, changes: { [date]: { '15:30': true, '08:00': false, '16:20': true } } }, st);
+  // 그 날만 16:20 은 칸이 아님(무시), 15:00 열고 08:00 닫기
+  Core.handle('admin.saveOverrides', { password: pw, changes: { [date]: { '15:00': true, '08:00': false, '16:20': true } } }, st);
   av = Core.handle('public.availability', { from: date, to: date }, st).days[date];
-  assert.deepStrictEqual(av.map((x) => x.start), ['15:30']);
+  assert.deepStrictEqual(av.map((x) => x.start), ['15:00']);
   Core.handle('admin.saveOverrides', { password: pw, changes: { [date]: null } }, st);
   av = Core.handle('public.availability', { from: date, to: date }, st).days[date];
   assert.deepStrictEqual(av.map((x) => x.start), ['08:00']);
@@ -107,11 +129,11 @@ test('관리자 비밀번호가 설정되지 않으면 로그인 불가', () => 
 
 test('시간표 → 주간 기본 시간: 수업과 겹치는 칸 제외', () => {
   const s = Core.defaultSettings();
-  // 월 1교시(08:40~09:30) 수업 → 08:00~08:50, 08:50~09:40 칸 닫힘
+  // 월 1교시(08:40~09:30) 수업 → 08:00~08:50, 09:00~09:50 칸 닫힘
   const t = Core.templateFromTimetable(s, { 1: [1] });
-  assert.ok(!t[1].includes('08:00') && !t[1].includes('08:50'));
-  assert.ok(t[1].includes('09:40'));
-  assert.strictEqual(t[2].length, 10);
+  assert.ok(!t[1].includes('08:00') && !t[1].includes('09:00'));
+  assert.ok(t[1].includes('10:00'));
+  assert.strictEqual(t[2].length, 9);
   assert.strictEqual(t[0].length, 0);
 });
 

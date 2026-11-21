@@ -496,7 +496,8 @@
     $('sTitle').value = s.title; $('sTeacher').value = s.teacherName; $('sSchool').value = s.schoolName;
     $('sPlace').value = s.place; $('sNotice').value = s.notice;
     $('sBStart').value = s.bookingStart; $('sBEnd').value = s.bookingEnd;
-    $('sStart').value = s.dayStart; $('sEnd').value = s.dayEnd; $('sMin').value = s.slotMinutes;
+    $('sStart').value = s.dayStart; $('sLast').value = s.lastStart; $('sInt').value = s.slotInterval; $('sMin').value = s.slotMinutes;
+    $('sResUrl').value = s.resourceUrl || ''; $('sResLabel').value = s.resourceLabel || '';
     $('sLead').value = s.minLeadHours; $('sMax').value = s.maxActivePerStudent; $('sRet').value = s.retention;
     $('sTopics').value = (s.topics || []).join('\n');
     $('sWeekdays').innerHTML = WD_ORDER.map(function (d) {
@@ -508,7 +509,8 @@
     return {
       title: $('sTitle').value, teacherName: $('sTeacher').value, schoolName: $('sSchool').value, place: $('sPlace').value,
       notice: $('sNotice').value, bookingStart: $('sBStart').value, bookingEnd: $('sBEnd').value,
-      dayStart: $('sStart').value, dayEnd: $('sEnd').value, slotMinutes: +$('sMin').value,
+      dayStart: $('sStart').value, lastStart: $('sLast').value, slotInterval: +$('sInt').value, slotMinutes: +$('sMin').value,
+      resourceUrl: $('sResUrl').value.trim(), resourceLabel: $('sResLabel').value.trim(),
       minLeadHours: +$('sLead').value, maxActivePerStudent: +$('sMax').value, retention: $('sRet').value,
       topics: $('sTopics').value.split('\n').map(function (t) { return t.trim(); }).filter(Boolean),
       weekdays: qsa('#sWeekdays input:checked').map(function (x) { return +x.value; })
@@ -516,12 +518,12 @@
   }
   function updateSlotPreview() {
     var f = formSettings();
-    var list = Core.slotList({ dayStart: f.dayStart, dayEnd: f.dayEnd, slotMinutes: f.slotMinutes });
+    var list = Core.slotList({ dayStart: f.dayStart, lastStart: f.lastStart, slotInterval: f.slotInterval, slotMinutes: f.slotMinutes });
     $('slotPreview').textContent = list.length
       ? '하루 ' + list.length + '칸: ' + list.map(function (x) { return x.start + '~' + x.end; }).join(', ')
       : '시각과 단위를 확인해 주세요.';
   }
-  ['sStart', 'sEnd', 'sMin'].forEach(function (id) { $(id).addEventListener('input', updateSlotPreview); });
+  ['sStart', 'sLast', 'sInt', 'sMin'].forEach(function (id) { $(id).addEventListener('input', updateSlotPreview); });
 
   $('setForm').addEventListener('submit', async function (e) {
     e.preventDefault();

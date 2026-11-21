@@ -32,9 +32,14 @@
 
   function applySettings() {
     var s = S.settings;
-    var title = s.title || '상담 예약';
-    $('title').textContent = title;
+    var title = s.title || '봉일천고 진로진학상담 예약시스템';
+    Array.prototype.forEach.call(document.querySelectorAll('.site-name'), function (el) { el.textContent = title; });
     document.title = title;
+    Array.prototype.forEach.call(document.querySelectorAll('.res-link'), function (a) {
+      if (s.resourceUrl) { a.href = s.resourceUrl; a.classList.remove('hidden'); }
+      else a.classList.add('hidden');
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.res-label'), function (el) { el.textContent = s.resourceLabel || '진로진학자료실'; });
     var sub = [s.schoolName, s.teacherName ? s.teacherName + ' 선생님' : ''].filter(Boolean).join(' · ');
     $('subtitle').textContent = sub || '편하게 이야기 나눠요';
     if (s.notice) { $('notice').textContent = s.notice; $('notice').classList.remove('hidden'); }
@@ -99,8 +104,8 @@
     S.slot = null;
     renderCalendar();
     renderSlots();
-    $('slotCard').classList.remove('hidden');
-    $('slotCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('slotCard').classList.remove('is-empty');
+    if (window.matchMedia('(max-width: 899px)').matches) $('slotCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   function renderSlots() {
@@ -145,7 +150,10 @@
   $('againBtn').onclick = async function () {
     S.date = null; S.slot = null;
     $('step2').reset();
-    $('slotCard').classList.add('hidden');
+    $('slotCard').classList.add('is-empty');
+    $('slots').innerHTML = '<div class="empty-msg">📅 먼저 달력에서 날짜를 골라 주세요.</div>';
+    $('slotTitle').textContent = '시간을 골라 주세요';
+    $('toForm').disabled = true;
     goStep(1);
     try { await loadAvailability(); } catch (e) { /* 무시 */ }
     renderCalendar();
@@ -186,8 +194,8 @@
       else if (!p.consent) { err = '개인정보 제공 및 조회에 동의해 주세요.'; focus = 'consent'; }
       if (err) { U.toast(err, true); if (focus) $(focus).focus(); return; }
 
-      var btn = $('submitBtn');
-      btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px"></span> 예약하는 중…';
+      var btns = Array.prototype.slice.call(document.querySelectorAll('.submit-btn'));
+      btns.forEach(function (b) { b.disabled = true; b.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px"></span> 예약하는 중…'; });
       try {
         var res = await U.api('public.reserve', p);
         S.lastReservation = res.reservation;
@@ -200,7 +208,7 @@
           S.slot = null; renderCalendar(); renderSlots(); goStep(1);
         }
       } finally {
-        btn.disabled = false; btn.textContent = '상담 예약하기';
+        btns.forEach(function (b) { b.disabled = false; b.textContent = '상담 예약하기'; });
       }
     });
 
@@ -247,11 +255,14 @@
 
   // ---------- 탭 ----------
   function bindTabs() {
-    Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
+    var all = Array.prototype.slice.call(document.querySelectorAll('button[data-tab]'));
+    all.forEach(function (b) {
       b.onclick = function () {
-        Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (x) { x.classList.toggle('on', x === b); });
-        $('tab-book').classList.toggle('hidden', b.dataset.tab !== 'book');
-        $('tab-lookup').classList.toggle('hidden', b.dataset.tab !== 'lookup');
+        var tab = b.dataset.tab;
+        all.forEach(function (x) { x.classList.toggle('on', x.dataset.tab === tab); });
+        $('tab-book').classList.toggle('hidden', tab !== 'book');
+        $('tab-lookup').classList.toggle('hidden', tab !== 'lookup');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       };
     });
   }
