@@ -352,3 +352,6 @@ table.grid th.rowh { text-align: right; white-space: nowrap; }
 .slot { font-size: 18px; }
 .slot small { font-size: 12px; margin-top: 2px; }
 .contact a { color: inherit; }
+.nowrap { white-space: nowrap; }
+.picked { display: inline-flex; gap: 6px; align-items: flex-start; line-height: 1.45; }
+.ticket .when { word-break: keep-all; }

@@ -70,7 +70,7 @@ var Core = (function () {
       teacherName: '',
       schoolName: '',
       place: '',
-      notice: '편한 날짜와 시간을 골라 주세요. 학생과 학부모님 모두 신청할 수 있어요.\n예약 후 일정 변경이 필요하면 [내 예약 확인]에서 취소하고 다시 신청해 주세요.',
+      notice: '편한 날짜와 시간을 골라 주세요. 학생과 학부모님 모두 신청할 수 있습니다.\n예약 후 일정 변경이 필요하면 [내 예약 확인]에서 취소하고 다시 신청해 주세요.',
       contactPhone: '031-950-0107',
       contactEmail: 'jungsooj@korea.kr',
       notifyEmail: 'jungsooj@korea.kr',  // 새 예약·취소 알림 받을 주소 (쉼표로 여러 개)

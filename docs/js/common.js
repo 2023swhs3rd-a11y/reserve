@@ -19,11 +19,11 @@
         redirect: 'follow'
       });
     } catch (e) {
-      throw new Error('서버에 연결할 수 없어요. 인터넷 연결을 확인해 주세요.');
+      throw new Error('서버에 연결할 수 없습니다. 인터넷 연결을 확인해 주세요.');
     }
     var j;
-    try { j = await res.json(); } catch (e) { throw new Error('서버 응답을 읽을 수 없어요. (API 주소 설정을 확인해 주세요)'); }
-    if (!j.ok) throw new Error(j.error || '오류가 발생했어요.');
+    try { j = await res.json(); } catch (e) { throw new Error('서버 응답을 읽을 수 없습니다. (API 주소 설정을 확인해 주세요)'); }
+    if (!j.ok) throw new Error(j.error || '오류가 발생했습니다.');
     return j.data;
   }
 
