@@ -68,7 +68,19 @@ function cfgSheet_() {
   return sh;
 }
 
+// 시트에 쓸 때 =·+·-·@·탭·줄바꿈으로 시작하는 글은 수식으로 읽히지 않게 앞에 ' 를 붙인다(수식 인젝션 방지).
+// 읽을 때는 그 ' 를 떼어 원래 글로 돌린다.
+function safeCell_(v) {
+  var s = String(v === undefined || v === null ? '' : v);
+  return /^[=+\-@\t\r\n]/.test(s) ? "'" + s : s;
+}
+function unsafeCell_(v) {
+  var s = String(v === undefined || v === null ? '' : v);
+  return /^'[=+\-@\t\r\n]/.test(s) ? s.slice(1) : s;
+}
+
 function rowToRes_(row) {
+  row = row.map(unsafeCell_);
   return {
     code: row[0], status: STATUS_EN[row[1]] || row[1], date: row[2], start: row[3], end: row[4],
     studentId: row[5], name: row[6], phone: row[7], parent: row[8] === '참여',
@@ -79,6 +91,9 @@ function rowToRes_(row) {
 }
 
 function resToRow_(r) {
+  return resToRowRaw_(r).map(safeCell_);
+}
+function resToRowRaw_(r) {
   return [r.code, STATUS_KO[r.status] || r.status, r.date, r.start, r.end, r.studentId, r.name, r.phone,
     r.parent ? '참여' : '불참', (r.topics || []).join(', '), r.topicEtc || '', r.gradeSchool || '',
     r.gradeMock || '', r.consentAt || '', r.createdAt || '', r.memo || '', r.id];
@@ -138,6 +153,14 @@ function makeStore_() {
       return bytes.map(function (b) { return ((b + 256) % 256).toString(16).replace(/^(.)$/, '0$1'); }).join('');
     },
     randomId: function () { return Utilities.getUuid(); },
+    // 조회·취소 실패 횟수(15분 동안 기억). Core가 5번 넘게 틀린 학번, 전체 60번을 넘으면 잠시 막는다.
+    getFails: function (key) {
+      return Number(CacheService.getScriptCache().get('fail:' + key) || 0);
+    },
+    addFail: function (key, seconds) {
+      var cache = CacheService.getScriptCache();
+      cache.put('fail:' + key, String(Number(cache.get('fail:' + key) || 0) + 1), seconds);
+    },
     initialPassword: function () {
       return PropertiesService.getScriptProperties().getProperty('ADMIN_PASSWORD') || '';
     }

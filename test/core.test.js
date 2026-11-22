@@ -6,7 +6,7 @@ const path = require('path');
 const Core = require('../docs/js/core.js');
 
 function memStore(initPw = 'first-pass') {
-  let state = null; let res = [];
+  let state = null; let res = []; const fails = {};
   return {
     loadState: () => (state ? JSON.parse(JSON.stringify(state)) : null),
     saveState: (s) => { state = JSON.parse(JSON.stringify(s)); },
@@ -15,6 +15,8 @@ function memStore(initPw = 'first-pass') {
     updateReservation: (id, p) => { res = res.map((r) => (r.id === id ? { ...r, ...p } : r)); },
     deleteReservations: (ids) => { res = res.filter((r) => !ids.includes(r.id)); },
     withLock: (fn) => fn(),
+    getFails: (k) => fails[k] || 0,
+    addFail: (k) => { fails[k] = (fails[k] || 0) + 1; },
     sha256: (t) => crypto.createHash('sha256').update(String(t)).digest('hex'),
     randomId: () => crypto.randomUUID(),
     initialPassword: () => initPw
@@ -66,10 +68,15 @@ test('조회와 취소', () => {
   const st = memStore();
   const date = nextWeekday(todayStr(), 4);
   const r = Core.handle('public.reserve', base(date, '13:00'), st).reservation;
-  const lk = Core.handle('public.lookup', { studentId: '20315', name: '김하늘', phone: '010-1234-5678' }, st);
+  const who = { studentId: '20315', name: '김하늘', phone: '010-1234-5678' };
+  // 예약번호 없이는 조회할 수 없다
+  assert.throws(() => Core.handle('public.lookup', who, st), /예약번호/);
+  const lk = Core.handle('public.lookup', { ...who, code: r.code.toLowerCase() }, st);
   assert.strictEqual(lk.reservations.length, 1);
-  assert.strictEqual(Core.handle('public.lookup', { studentId: '20315', name: '김하늘', phone: '010-0000-0000' }, st).reservations.length, 0);
-  Core.handle('public.cancel', { code: r.code, studentId: '20315', phone: '010-1234-5678' }, st);
+  assert.strictEqual(Core.handle('public.lookup', { ...who, phone: '010-0000-0000', code: r.code }, st).reservations.length, 0);
+  // 성명이 다르면 취소할 수 없다
+  assert.throws(() => Core.handle('public.cancel', { ...who, name: '다른사람', code: r.code }, st), /찾을 수 없어요/);
+  Core.handle('public.cancel', { ...who, code: r.code }, st);
   const av = Core.handle('public.availability', { from: date, to: date }, st).days[date];
   assert.strictEqual(av.find((x) => x.start === '13:00').status, 'open');
 });
@@ -120,4 +127,16 @@ test('gas/Core.gs 가 docs/js/core.js 와 같음', () => {
   const a = fs.readFileSync(path.join(root, 'docs/js/core.js'), 'utf8');
   const b = fs.readFileSync(path.join(root, 'gas/Core.gs'), 'utf8');
   assert.ok(b.endsWith(a), 'npm run build:gas 를 실행하세요');
+});
+
+test('조회·취소: 여러 번 틀리면 잠시 막힘', () => {
+  const st = memStore();
+  const date = nextWeekday(todayStr(), 4);
+  const r = Core.handle('public.reserve', base(date, '13:00'), st).reservation;
+  const who = { studentId: '20315', name: '김하늘', phone: '010-1234-5678' };
+  for (let i = 0; i < 5; i++) Core.handle('public.lookup', { ...who, code: 'AAAAAA' }, st);
+  assert.throws(() => Core.handle('public.lookup', { ...who, code: r.code }, st), /15분/);
+  assert.throws(() => Core.handle('public.cancel', { ...who, code: r.code }, st), /15분/);
+  // 다른 학번은 막히지 않는다
+  assert.strictEqual(Core.handle('public.lookup', { studentId: '20316', name: '김하늘', phone: '010-1234-5678', code: 'AAAAAA' }, st).reservations.length, 0);
 });

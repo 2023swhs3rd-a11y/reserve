@@ -205,6 +205,7 @@
     });
 
     $('icsBtn').onclick = function () { if (S.lastReservation) downloadIcs(S.lastReservation); };
+    $('printBtn').onclick = function () { window.print(); };
   }
 
   function renderTicket(r, el) {
@@ -260,7 +261,7 @@
   var lastLookup = null;
   $('lookupForm').addEventListener('submit', async function (e) {
     e.preventDefault();
-    lastLookup = { studentId: $('lkId').value.trim(), name: $('lkName').value.trim(), phone: $('lkPhone').value.trim() };
+    lastLookup = { studentId: $('lkId').value.trim(), name: $('lkName').value.trim(), phone: $('lkPhone').value.trim(), code: $('lkCode').value.trim().toUpperCase() };
     await runLookup();
   });
 
@@ -270,7 +271,7 @@
     try {
       var res = await U.api('public.lookup', lastLookup);
       if (!res.reservations.length) {
-        box.innerHTML = '<div class="card empty-msg">예정된 예약이 없어요. 입력한 정보를 다시 확인해 주세요.</div>';
+        box.innerHTML = '<div class="card empty-msg">맞는 예약이 없어요. 학번·성명·연락처·예약번호를 다시 확인해 주세요. (여러 번 틀리면 15분 동안 조회가 막혀요)</div>';
         return;
       }
       box.innerHTML = res.reservations.map(function (r, i) {
@@ -295,9 +296,9 @@
     }
     b.disabled = true;
     try {
-      await U.api('public.cancel', { code: b.dataset.cancel, studentId: lastLookup.studentId, phone: lastLookup.phone });
+      await U.api('public.cancel', { code: b.dataset.cancel, studentId: lastLookup.studentId, name: lastLookup.name, phone: lastLookup.phone });
       U.toast('예약을 취소했어요.');
-      await runLookup();
+      $('lookupResult').innerHTML = '<div class="card empty-msg">예약을 취소했어요. 다시 신청하려면 [상담 신청]에서 시간을 골라 주세요.</div>';
       try { await loadAvailability(); renderCalendar(); } catch (e2) { /* 무시 */ }
     } catch (ex) {
       b.disabled = false;

@@ -5,8 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>상담 예약</title>
   <meta name="description" content="학생·학부모 상담 예약">
+  <!-- 개인정보를 받는 신청서라 검색엔진에 올리지 않는다 -->
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="same-origin">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌷</text></svg>">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <!-- 글꼴은 진로진학부 사이트가 같은 주소에서 내보내는 Pretendard(외부 CDN 없음). Node 서버로 돌리면 없으므로 시스템 글꼴로 보인다 -->
+  <link rel="stylesheet" href="/assets/fonts/pretendard/pretendard.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -133,12 +138,12 @@
           <div class="done-top">
             <div class="big" aria-hidden="true">🎉</div>
             <h2>상담 예약이 완료되었어요!</h2>
-            <p class="hint">아래 일정을 꼭 확인해 주세요. 이 화면을 캡처해 두면 편해요.</p>
+            <p class="hint">아래 일정을 꼭 확인해 주세요. <b>예약번호</b>는 예약을 확인하거나 취소할 때 필요하니 이 화면을 캡처해 두세요.</p>
           </div>
           <div class="ticket" id="ticket"></div>
           <div class="btn-row no-print">
             <button type="button" class="btn ghost" id="icsBtn">📆 내 캘린더에 추가</button>
-            <button type="button" class="btn ghost" onclick="window.print()">🖨️ 인쇄·PDF 저장</button>
+            <button type="button" class="btn ghost" id="printBtn">🖨️ 인쇄·PDF 저장</button>
           </div>
           <div style="margin-top:10px" class="no-print">
             <button type="button" class="btn block" id="againBtn">처음 화면으로</button>
@@ -151,12 +156,15 @@
     <section id="tab-lookup" class="hidden">
       <form class="card" id="lookupForm" novalidate>
         <h2>🔎 내 예약 확인</h2>
-        <p class="hint" style="margin-top:-6px;margin-bottom:14px">신청할 때 적은 정보를 똑같이 입력해 주세요.</p>
+        <p class="hint" style="margin-top:-6px;margin-bottom:14px">신청할 때 적은 정보와 신청 완료 화면의 예약번호를 똑같이 입력해 주세요. 예약번호를 잃어버렸으면 담당 선생님께 물어봐 주세요.</p>
         <div class="row2">
           <div class="field"><label for="lkId">학번</label><input type="text" id="lkId" inputmode="numeric" maxlength="6" placeholder="예) 20315"></div>
           <div class="field"><label for="lkName">학생 성명</label><input type="text" id="lkName" maxlength="30" placeholder="예) 김하늘"></div>
         </div>
-        <div class="field"><label for="lkPhone">연락처</label><input type="tel" id="lkPhone" inputmode="tel" maxlength="13" placeholder="010-1234-5678"></div>
+        <div class="row2">
+          <div class="field"><label for="lkPhone">연락처</label><input type="tel" id="lkPhone" inputmode="tel" maxlength="13" placeholder="010-1234-5678"></div>
+          <div class="field"><label for="lkCode">예약번호</label><input type="text" id="lkCode" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="예) K7P2QX"></div>
+        </div>
         <button type="submit" class="btn block">예약 조회하기</button>
       </form>
       <div id="lookupResult"></div>
