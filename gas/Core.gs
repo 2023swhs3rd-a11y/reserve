@@ -224,6 +224,22 @@ var Core = (function () {
     return out;
   }
 
+  // ---------- 조회·취소 실패 제한 ----------
+  // 학번·성명·연락처를 마구 넣어 보는 것을 막으려고, 실패가 쌓이면 잠시 막는다.
+  // store.getFails(key)/addFail(key, 초)가 없는 저장소에서는 제한 없이 동작한다.
+  var FAIL_LIMIT = 5, FAIL_ALL_LIMIT = 60, FAIL_SECONDS = 15 * 60;
+  function checkFails(store, studentId) {
+    if (!store.getFails) return;
+    if (store.getFails('id:' + studentId) >= FAIL_LIMIT || store.getFails('all') >= FAIL_ALL_LIMIT) {
+      fail('확인에 여러 번 실패했습니다. 15분 뒤에 다시 시도해 주세요.');
+    }
+  }
+  function noteFail(store, studentId) {
+    if (!store.addFail) return;
+    store.addFail('id:' + studentId, FAIL_SECONDS);
+    store.addFail('all', FAIL_SECONDS);
+  }
+
   function publicReservation(r) {
     return {
       date: r.date, start: r.start, end: r.end,
@@ -419,10 +435,12 @@ var Core = (function () {
       var name = str(p.name, 30);
       var phone = normPhone(p.phone);
       if (!studentId || !name || !phone) fail('학번, 성명, 연락처를 모두 입력해 주세요.');
+      checkFails(store, studentId);
       var today = todayStr();
       var list = store.listReservations().filter(function (r) {
         return r.studentId === studentId && r.name === name && r.phone === phone && r.date >= today && r.status !== 'cancelled';
       }).sort(function (a, b) { return (a.date + a.start) < (b.date + b.start) ? -1 : 1; });
+      if (!list.length) noteFail(store, studentId);
       var st = getState(store);
       return { reservations: list.map(publicReservation), teacherName: st.settings.teacherName, place: st.settings.place, title: st.settings.title };
     },
@@ -434,12 +452,13 @@ var Core = (function () {
       var phone = normPhone(p.phone);
       var date = str(p.date), start = str(p.start);
       if (!studentId || !name || !phone || !date || !start) fail('예약 정보를 확인해 주세요.');
+      checkFails(store, studentId);
       return store.withLock(function () {
         var r = store.listReservations().filter(function (x) {
           return x.studentId === studentId && x.name === name && x.phone === phone &&
             x.date === date && x.start === start && x.status !== 'cancelled';
         })[0];
-        if (!r) fail('예약을 찾을 수 없어요.');
+        if (!r) { noteFail(store, studentId); fail('예약을 찾을 수 없어요.'); }
         if (r.date < todayStr()) fail('지난 예약은 취소할 수 없어요.');
         store.updateReservation(r.id, { status: 'cancelled', memo: (r.memo ? r.memo + ' / ' : '') + '신청자 취소 ' + new Date().toISOString().slice(0, 10) });
         notifyTeacher(store, getState(store).settings, '예약 취소', r);

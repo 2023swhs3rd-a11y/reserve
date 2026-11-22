@@ -172,7 +172,7 @@
   $('csvBtn').onclick = function () {
     var list = filteredRes();
     var head = ['날짜', '시작', '종료', '학번', '성명', '연락처', '학부모참여', '문의내용', '직접입력', '교과성적', '모의고사성적', '상태', '메모', '동의일시', '신청일시'];
-    var q = function (v) { v = String(v === undefined || v === null ? '' : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
+    var q = function (v) { v = String(v === undefined || v === null ? '' : v); if (/^[=+\-@\t\r\n]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
     var rows = list.map(function (r) {
       return [r.date, r.start, r.end, r.studentId, r.name, r.phone, r.parent ? '참여' : '불참', (r.topics || []).join(', '), r.topicEtc,
         r.gradeSchool, r.gradeMock, STATUS[r.status], r.memo, r.consentAt, r.createdAt].map(q).join(',');
