@@ -224,6 +224,7 @@
     });
 
     $('icsBtn').onclick = function () { if (S.lastReservation) downloadIcs(S.lastReservation); };
+    $('printBtn').onclick = function () { window.print(); };
   }
 
   function renderTicket(r, el) {

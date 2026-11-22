@@ -3,10 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="same-origin">
   <title>예약시스템 관리</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <!-- 글꼴은 진로진학부 사이트가 같은 주소에서 내보내는 Pretendard(외부 CDN 없음). Node 서버로 돌리면 없으므로 시스템 글꼴로 보인다 -->
+  <link rel="stylesheet" href="/assets/fonts/pretendard/pretendard.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>

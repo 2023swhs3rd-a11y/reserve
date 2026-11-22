@@ -29,6 +29,8 @@ function writeDb(db) {
 }
 
 // Node는 요청을 한 번에 하나씩 동기 처리하므로 별도 잠금이 필요 없음
+// 예약 조회·취소 실패 기록 (store.getFails/addFail)
+const fails = new Map();
 const store = {
   loadState: () => readDb().state,
   saveState: (s) => { const db = readDb(); db.state = s; writeDb(db); },
@@ -45,6 +47,13 @@ const store = {
     writeDb(db);
   },
   withLock: (fn) => fn(),
+  // 조회·취소 실패 횟수(메모리에 잠시 기억)
+  getFails: (key) => { const f = fails.get(key); return f && f.until > Date.now() ? f.n : 0; },
+  addFail: (key, seconds) => {
+    const f = fails.get(key);
+    if (f && f.until > Date.now()) f.n++;
+    else fails.set(key, { n: 1, until: Date.now() + seconds * 1000 });
+  },
   sha256: (t) => crypto.createHash('sha256').update(String(t), 'utf8').digest('hex'),
   randomId: () => crypto.randomUUID(),
   initialPassword: () => process.env.ADMIN_PASSWORD || '',
