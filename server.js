@@ -93,6 +93,12 @@ function recordFailure(ip) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
+  if (url.pathname === '/api' && req.method === 'GET' && url.searchParams.get('ics')) {
+    const ics = Core.calendarIcs(Object.fromEntries(url.searchParams), store);
+    if (!ics) return send(res, 400, 'bad request');
+    res.writeHead(200, { 'Content-Type': 'text/calendar; charset=utf-8' });
+    return res.end(ics);
+  }
   if (url.pathname === '/api') {
     if (req.method !== 'POST') return send(res, 405, JSON.stringify({ ok: false, error: 'POST only' }));
     let body = '';
