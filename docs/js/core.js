@@ -23,7 +23,7 @@ var Core = (function () {
 
   var DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
   var STATE_VERSION = 4;
-  var CORE_VERSION = 4;  // 서버(Apps Script) 코드 버전 — 화면이 예전 서버와 연결됐는지 확인용
+  var CORE_VERSION = 5;  // 서버(Apps Script) 코드 버전 — 화면이 예전 서버와 연결됐는지 확인용
   var OLD_NOTICE = '편한 날짜와 시간을 골라 주세요. 학생과 학부모님 모두 신청할 수 있습니다.\n예약 후 일정 변경이 필요하면 [내 예약 확인]에서 취소하고 다시 신청해 주세요.';
   var OLD_TOPICS = ['진로·진학', '학업·성적', '수시·정시 지원 전략', '학교생활기록부', '교우관계', '학교생활 적응', '건강·심리'];
 
@@ -651,6 +651,34 @@ var Core = (function () {
     return fn(payload, store);
   }
 
+  // ---------- 캘린더(.ics) ----------
+  // iPhone·iPad는 https 주소가 text/calendar 를 돌려주면 '캘린더에 추가' 창을 띄운다.
+  // 개인정보는 넣지 않고 날짜·시각만 받아, 장소는 설정값을 쓴다.
+  function calendarIcs(p, store) {
+    var date = String((p && p.date) || ''), start = String((p && p.start) || ''), end = String((p && p.end) || '');
+    if (!parseYmd(date) || !/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) return null;
+    if (isNaN(toMin(start)) || isNaN(toMin(end)) || toMin(start) >= toMin(end) || toMin(end) > 24 * 60) return null;
+    var place = '';
+    try { place = String(getState(store).settings.place || ''); } catch (e) { place = ''; }
+    var esc = function (v) { return String(v).replace(/[\\;,]/g, function (c) { return '\\' + c; }).replace(/[\r\n]+/g, ' '); };
+    var d = date.replace(/-/g, '');
+    var t = function (hm) { return hm.replace(':', '') + '00'; };
+    return [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//counsel-reserve//KO', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+      'BEGIN:VTIMEZONE', 'TZID:Asia/Seoul', 'BEGIN:STANDARD', 'DTSTART:19700101T000000', 'TZOFFSETFROM:+0900', 'TZOFFSETTO:+0900', 'TZNAME:KST', 'END:STANDARD', 'END:VTIMEZONE',
+      'BEGIN:VEVENT',
+      'UID:' + d + t(start) + '@bongilcheon-counsel',
+      'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''),
+      'DTSTART;TZID=Asia/Seoul:' + d + 'T' + t(start),
+      'DTEND;TZID=Asia/Seoul:' + d + 'T' + t(end),
+      'SUMMARY:' + esc('봉일천고 진로진학상담'),
+      place ? 'LOCATION:' + esc(place) : null,
+      'DESCRIPTION:' + esc('진로진학부 상담'),
+      'BEGIN:VALARM', 'TRIGGER:-PT30M', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc('상담 30분 전'), 'END:VALARM',
+      'END:VEVENT', 'END:VCALENDAR'
+    ].filter(function (x) { return x !== null; }).join('\r\n');
+  }
+
   // 시간표(교시) → 상담 칸 겹침 계산: busy = { 1: [1,3,5], 2: [...] } (요일: 교시 목록)
   function templateFromTimetable(settings, busy) {
     var slots = slotList(settings);
@@ -672,6 +700,7 @@ var Core = (function () {
 
   return {
     handle: handle,
+    calendarIcs: calendarIcs,
     VERSION: CORE_VERSION,
     UserError: UserError,
     slotList: slotList,

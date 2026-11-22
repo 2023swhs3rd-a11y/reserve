@@ -27,7 +27,12 @@ function setup() {
   Logger.log('준비 완료! 이제 [배포 > 새 배포 > 웹 앱]으로 배포하세요.');
 }
 
-function doGet() {
+function doGet(e) {
+  // 캘린더 추가(iPhone·iPad): ?ics=1&date=YYYY-MM-DD&start=HH:MM&end=HH:MM
+  if (e && e.parameter && e.parameter.ics) {
+    var ics = Core.calendarIcs(e.parameter, makeStore_());
+    if (ics) return ContentService.createTextOutput(ics).setMimeType(ContentService.MimeType.ICAL);
+  }
   return ContentService.createTextOutput('상담예약 API가 동작 중입니다. (서버 코드 버전 ' + Core.VERSION + ')');
 }
 

@@ -83,6 +83,6 @@
 
   window.U = {
     api: api, DAY: DAY, pad: pad, ymd: ymd, parse: parse, dow: dow, pretty: pretty, short: short, hour: hour,
-    addMonths: addMonths, daysIn: daysIn, toast: toast, esc: esc, formatPhone: formatPhone, download: download
+    addMonths: addMonths, daysIn: daysIn, toast: toast, esc: esc, formatPhone: formatPhone, download: download, apiUrl: apiUrl
   };
 })();

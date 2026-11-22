@@ -245,3 +245,16 @@ test('조회·취소: 여러 번 틀리면 잠시 막힘', () => {
   // 다른 학번은 막히지 않는다
   assert.strictEqual(Core.handle('public.lookup', { ...who, studentId: '20316' }, st).reservations.length, 0);
 });
+
+test('캘린더(.ics): 날짜·시각 검증, 장소는 설정값, 개인정보 없음', () => {
+  const st = memStore();
+  Core.handle('admin.saveSettings', { password: 'first-pass', settings: { place: '진로상담실, 2층' } }, st);
+  const ics = Core.calendarIcs({ date: '2026-12-01', start: '09:00', end: '09:50' }, st);
+  assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
+  assert.match(ics, /DTSTART;TZID=Asia\/Seoul:20261201T090000/);
+  assert.match(ics, /DTEND;TZID=Asia\/Seoul:20261201T095000/);
+  assert.match(ics, /LOCATION:진로상담실\\, 2층/);
+  assert.strictEqual(Core.calendarIcs({ date: '2026-13-01', start: '09:00', end: '09:50' }, st), null);
+  assert.strictEqual(Core.calendarIcs({ date: '2026-12-01', start: '09:00\r\nX', end: '09:50' }, st), null);
+  assert.strictEqual(Core.calendarIcs({ date: '2026-12-01', start: '10:00', end: '09:50' }, st), null);
+});

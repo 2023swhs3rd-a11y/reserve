@@ -20,7 +20,8 @@
     try {
       var cfg = await U.api('public.config');
       S.settings = cfg.settings;
-      if (!(cfg.coreVersion >= 4)) console.warn('서버(Apps Script) 코드가 예전 버전입니다. gas/Core.gs 를 새로 붙여 넣고 새 버전으로 배포하세요.');
+      S.coreVersion = cfg.coreVersion || 0;
+      if (!(cfg.coreVersion >= 5)) console.warn('서버(Apps Script) 코드가 예전 버전입니다. gas/Core.gs 를 새로 붙여 넣고 새 버전으로 배포하세요.');
       applySettings();
       var t = U.parse(S.settings.today);
       var start = S.settings.bookingStart > S.settings.today ? U.parse(S.settings.bookingStart) : t;
@@ -229,7 +230,6 @@
     });
 
     $('icsBtn').onclick = function () { if (S.lastReservation) downloadIcs(S.lastReservation); };
-    $('printBtn').onclick = function () { window.print(); };
   }
 
   function renderTicket(r, el) {
@@ -252,6 +252,15 @@
   function downloadIcs(r) {
     var d = r.date.replace(/-/g, '');
     var t = function (hm) { return hm.replace(':', '') + '00'; };
+    // iPhone·iPad: 서버 주소가 캘린더 파일을 바로 돌려주면 기본 캘린더의 '이벤트 추가' 창이 뜬다.
+    // (data: 주소는 iOS가 막아서 반응이 없다.) 서버가 예전 버전이면 파일 내려받기로.
+    var ua = navigator.userAgent || '';
+    var ios = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    if (ios && S.coreVersion >= 5) {
+      window.location.href = U.apiUrl() + (U.apiUrl().indexOf('?') >= 0 ? '&' : '?') +
+        'ics=1&date=' + encodeURIComponent(r.date) + '&start=' + encodeURIComponent(r.start) + '&end=' + encodeURIComponent(r.end);
+      return;
+    }
     var title = '봉일천고 진로진학상담';
     var lines = [
       'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//counsel-reserve//KO', 'CALSCALE:GREGORIAN',
@@ -268,15 +277,7 @@
       'END:VEVENT', 'END:VCALENDAR'
     ].filter(Boolean);
     var ics = lines.join('\r\n');
-    // iPhone·iPad(모든 브라우저)와 Mac의 Safari는 캘린더 파일 주소를 바로 열면
-    // 기본 캘린더 앱의 '이벤트 추가' 창이 뜬다. 그 밖의 환경은 .ics 파일로 내려받는다.
-    var ua = navigator.userAgent || '';
-    var ios = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-    var macSafari = /Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg|OPR|Firefox/.test(ua);
-    if (ios || macSafari) {
-      window.location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
-      return;
-    }
+    // Mac·Windows·Android: .ics 파일을 내려받는다(Mac은 받은 파일을 누르면 캘린더 앱에 추가 창이 뜬다).
     U.download('상담예약_' + r.date + '.ics', ics, 'text/calendar;charset=utf-8');
   }
 
