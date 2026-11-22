@@ -69,7 +69,7 @@ test('예약 → 마감 표시, 중복 예약 차단, 학번당 1건 제한', ()
   const st = memStore();
   const date = nextWeekday(todayStr(), 2);
   const r = Core.handle('public.reserve', base(date, '09:00'), st).reservation;
-  assert.ok(!('code' in r), '예약번호는 화면에 내보내지 않음');
+  assert.match(r.code, /^\d{4}$/, '예약코드는 숫자 4자리');
   assert.strictEqual(r.end, '09:50');
   const av = Core.handle('public.availability', { from: date, to: date }, st).days[date];
   assert.strictEqual(av.find((x) => x.start === '09:00').status, 'booked');
@@ -91,21 +91,81 @@ test('필수값 검증', () => {
   assert.strictEqual(ok.reservation.topicEtc, '동아리 고민');
 });
 
-test('조회와 취소', () => {
+test('조회와 취소: 학번+성명+예약코드', () => {
   const st = memStore();
   const date = nextWeekday(todayStr(), 4);
   const r = Core.handle('public.reserve', base(date, '13:00'), st).reservation;
-  const lk = Core.handle('public.lookup', { studentId: '20315', name: '김하늘', phone: '010-1234-5678' }, st);
+  const who = { studentId: '20315', name: '김하늘', code: r.code };
+  const lk = Core.handle('public.lookup', who, st);
   assert.strictEqual(lk.reservations.length, 1);
-  assert.strictEqual(Core.handle('public.lookup', { studentId: '20315', name: '김하늘', phone: '010-0000-0000' }, st).reservations.length, 0);
-  assert.throws(() => Core.handle('public.cancel', { studentId: '20315', name: '김하늘', phone: '010-1234-5678', date, start: '14:00' }, st), /찾을 수 없어요/);
-  Core.handle('public.cancel', { studentId: '20315', name: '김하늘', phone: '010-1234-5678', date, start: '13:00' }, st);
+  assert.strictEqual(lk.reservations[0].code, r.code);
+  const wrong = String((+r.code + 1) % 10000).padStart(4, '0');
+  assert.strictEqual(Core.handle('public.lookup', { ...who, code: wrong }, st).reservations.length, 0);
+  // 연락처로는 더 이상 조회되지 않음(예약코드가 있는 예약)
+  assert.strictEqual(Core.handle('public.lookup', { ...who, code: '010-1234-5678' }, st).reservations.length, 0);
+  assert.throws(() => Core.handle('public.lookup', { studentId: '20315', name: '김하늘' }, st), /예약코드/);
+  assert.throws(() => Core.handle('public.cancel', { ...who, code: wrong, date, start: '13:00' }, st), /찾을 수 없어요/);
+  assert.throws(() => Core.handle('public.cancel', { ...who, date, start: '14:00' }, st), /찾을 수 없어요/);
+  Core.handle('public.cancel', { ...who, date, start: '13:00' }, st);
   assert.deepStrictEqual(st.sent.map((m) => m.subject.split(' - ')[0]), ['[봉일천고 진로진학상담] 새 예약', '[봉일천고 진로진학상담] 예약 취소']);
   assert.strictEqual(st.sent[0].to, 'jungsooj@korea.kr');
   assert.match(st.sent[0].subject, /13:00 김하늘$/);
+  assert.ok(st.sent[0].body.includes('예약코드: ' + r.code));
   assert.ok(!/2\.4등급/.test(st.sent[0].body));
   const av = Core.handle('public.availability', { from: date, to: date }, st).days[date];
   assert.strictEqual(av.find((x) => x.start === '13:00').status, 'open');
+});
+
+test('일정 변경: 예약코드 유지, 이전 칸 열림, 새 칸 마감', () => {
+  const st = memStore();
+  const date = nextWeekday(todayStr(), 2);
+  const r = Core.handle('public.reserve', base(date, '09:00'), st).reservation;
+  Core.handle('public.reserve', base(date, '11:00', { studentId: '10101', name: '이솔' }), st);
+  const who = { studentId: '20315', name: '김하늘', code: r.code };
+  assert.throws(() => Core.handle('public.change', { ...who, date, start: '09:00', newDate: date, newStart: '11:00' }, st), /다른 분이 예약/);
+  assert.throws(() => Core.handle('public.change', { ...who, date, start: '09:00', newDate: date, newStart: '09:00' }, st), /같은 시간/);
+  assert.throws(() => Core.handle('public.change', { ...who, code: '9999' === r.code ? '9998' : '9999', date, start: '09:00', newDate: date, newStart: '10:00' }, st), /찾을 수 없어요/);
+  const ch = Core.handle('public.change', { ...who, date, start: '09:00', newDate: date, newStart: '10:00' }, st);
+  assert.strictEqual(ch.reservation.start, '10:00');
+  assert.strictEqual(ch.reservation.end, '10:50');
+  assert.strictEqual(ch.reservation.code, r.code);
+  assert.deepStrictEqual(ch.before, { date, start: '09:00', end: '09:50' });
+  const av = Core.handle('public.availability', { from: date, to: date }, st).days[date];
+  assert.strictEqual(av.find((x) => x.start === '09:00').status, 'open');
+  assert.strictEqual(av.find((x) => x.start === '10:00').status, 'booked');
+  const last = st.sent[st.sent.length - 1];
+  assert.match(last.subject, /예약 변경 - .* 10:00 김하늘$/);
+  assert.ok(last.body.includes('이전 일정: ' + date));
+  assert.strictEqual(Core.handle('public.lookup', who, st).reservations[0].start, '10:00');
+});
+
+test('예약코드 도입 전 예약: 예약코드 칸에 연락처로 조회·변경, 변경 시 새 코드 발급', () => {
+  const st = memStore();
+  const date = nextWeekday(todayStr(), 3);
+  Core.handle('public.reserve', base(date, '09:00'), st);
+  // 예전 형식(영문 6자리)으로 바꿔 둠
+  const old = st.listReservations()[0];
+  st.updateReservation(old.id, { code: 'AB3KQ9' });
+  const who = { studentId: '20315', name: '김하늘', code: '010-1234-5678' };
+  const lk = Core.handle('public.lookup', who, st);
+  assert.strictEqual(lk.reservations.length, 1);
+  assert.strictEqual(lk.reservations[0].code, '');
+  assert.strictEqual(Core.handle('public.lookup', { ...who, code: 'AB3KQ9' }, st).reservations.length, 0);
+  const ch = Core.handle('public.change', { ...who, date, start: '09:00', newDate: date, newStart: '13:00' }, st);
+  assert.match(ch.reservation.code, /^\d{4}$/);
+  assert.strictEqual(Core.handle('public.lookup', { ...who, code: ch.reservation.code }, st).reservations.length, 1);
+});
+
+test('안내문: 예전 기본 안내문만 새 문구로 바뀜', () => {
+  const st = memStore();
+  const s = Core.defaultSettings();
+  s.notice = '편한 날짜와 시간을 골라 주세요. 학생과 학부모님 모두 신청할 수 있습니다.\n예약 후 일정 변경이 필요하면 [내 예약 확인]에서 취소하고 다시 신청해 주세요.';
+  st.saveState({ version: 3, settings: s, template: {}, overrides: {}, auth: null });
+  assert.match(Core.handle('public.config', {}, st).settings.notice, /예약코드/);
+  const st2 = memStore();
+  const s2 = Core.defaultSettings(); s2.notice = '선생님이 쓴 안내';
+  st2.saveState({ version: 3, settings: s2, template: {}, overrides: {}, auth: null });
+  assert.strictEqual(Core.handle('public.config', {}, st2).settings.notice, '선생님이 쓴 안내');
 });
 
 test('관리자: 비밀번호, 주간 시간, 날짜 조정', () => {
@@ -175,11 +235,13 @@ test('알림 실패해도 예약은 성공', () => {
 test('조회·취소: 여러 번 틀리면 잠시 막힘', () => {
   const st = memStore();
   const date = nextWeekday(todayStr(), 4);
-  Core.handle('public.reserve', base(date, '13:00'), st);
-  const who = { studentId: '20315', name: '김하늘', phone: '010-1234-5678' };
-  for (let i = 0; i < 5; i++) Core.handle('public.lookup', { ...who, phone: '010-0000-0000' }, st);
+  const r = Core.handle('public.reserve', base(date, '13:00'), st).reservation;
+  const who = { studentId: '20315', name: '김하늘', code: r.code };
+  const wrong = String((+r.code + 1) % 10000).padStart(4, '0');
+  for (let i = 0; i < 5; i++) Core.handle('public.lookup', { ...who, code: wrong }, st);
   assert.throws(() => Core.handle('public.lookup', who, st), /15분/);
   assert.throws(() => Core.handle('public.cancel', { ...who, date, start: '13:00' }, st), /15분/);
+  assert.throws(() => Core.handle('public.change', { ...who, date, start: '13:00', newDate: date, newStart: '14:00' }, st), /15분/);
   // 다른 학번은 막히지 않는다
   assert.strictEqual(Core.handle('public.lookup', { ...who, studentId: '20316' }, st).reservations.length, 0);
 });

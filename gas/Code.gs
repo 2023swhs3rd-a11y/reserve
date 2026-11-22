@@ -11,7 +11,7 @@
 
 var RES_SHEET = '예약';
 var CFG_SHEET = '_설정';
-var HEADERS = ['예약번호', '상태', '날짜', '시작', '종료', '학번', '성명', '연락처', '학부모참여',
+var HEADERS = ['예약코드', '상태', '날짜', '시작', '종료', '학번', '성명', '연락처', '학부모참여',
   '문의내용', '직접입력', '교과성적', '모의고사성적', '동의일시', '신청일시', '메모', 'id'];
 var STATUS_KO = { booked: '예약', done: '완료', cancelled: '취소' };
 var STATUS_EN = { '예약': 'booked', '완료': 'done', '취소': 'cancelled' };
