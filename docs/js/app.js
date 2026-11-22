@@ -237,7 +237,7 @@
     if (r.topicEtc) topics.push('직접 입력: ' + r.topicEtc);
     var place = r.place || (S.settings && S.settings.place);
     el.innerHTML =
-      (r.code ? '<div class="code-box"><span class="lbl">예약코드</span><strong>' + U.esc(r.code) + '</strong>' +
+      (/^\d{4}$/.test(r.code || '') ? '<div class="code-box"><span class="lbl">예약코드</span><strong>' + U.esc(r.code) + '</strong>' +
         '<small>일정 변경·취소할 때 학번·성명과 함께 입력합니다</small></div>' : '') +
       '<div class="when">' + U.esc(U.pretty(r.date)) + '<br>' + U.esc(r.start) + ' ~ ' + U.esc(r.end) + '</div>' +
       '<dl>' +
