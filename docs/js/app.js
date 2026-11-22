@@ -267,7 +267,17 @@
       'BEGIN:VALARM', 'TRIGGER:-PT30M', 'ACTION:DISPLAY', 'DESCRIPTION:상담 30분 전', 'END:VALARM',
       'END:VEVENT', 'END:VCALENDAR'
     ].filter(Boolean);
-    U.download('상담예약_' + r.date + '.ics', lines.join('\r\n'), 'text/calendar;charset=utf-8');
+    var ics = lines.join('\r\n');
+    // iPhone·iPad(모든 브라우저)와 Mac의 Safari는 캘린더 파일 주소를 바로 열면
+    // 기본 캘린더 앱의 '이벤트 추가' 창이 뜬다. 그 밖의 환경은 .ics 파일로 내려받는다.
+    var ua = navigator.userAgent || '';
+    var ios = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    var macSafari = /Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg|OPR|Firefox/.test(ua);
+    if (ios || macSafari) {
+      window.location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+      return;
+    }
+    U.download('상담예약_' + r.date + '.ics', ics, 'text/calendar;charset=utf-8');
   }
 
   // ---------- 탭 ----------
