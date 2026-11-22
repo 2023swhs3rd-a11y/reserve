@@ -23,8 +23,9 @@ var Core = (function () {
   'use strict';
 
   var DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
-  var STATE_VERSION = 3;
-  var CORE_VERSION = 3;  // 서버(Apps Script) 코드 버전 — 화면이 예전 서버와 연결됐는지 확인용
+  var STATE_VERSION = 4;
+  var CORE_VERSION = 4;  // 서버(Apps Script) 코드 버전 — 화면이 예전 서버와 연결됐는지 확인용
+  var OLD_NOTICE = '편한 날짜와 시간을 골라 주세요. 학생과 학부모님 모두 신청할 수 있습니다.\n예약 후 일정 변경이 필요하면 [내 예약 확인]에서 취소하고 다시 신청해 주세요.';
   var OLD_TOPICS = ['진로·진학', '학업·성적', '수시·정시 지원 전략', '학교생활기록부', '교우관계', '학교생활 적응', '건강·심리'];
 
   function UserError(message) {
@@ -71,7 +72,7 @@ var Core = (function () {
       teacherName: '',
       schoolName: '',
       place: '',
-      notice: '편한 날짜와 시간을 골라 주세요. 학생과 학부모님 모두 신청할 수 있습니다.\n예약 후 일정 변경이 필요하면 [내 예약 확인]에서 취소하고 다시 신청해 주세요.',
+      notice: '편한 날짜와 시간을 골라 주세요. 학생과 학부모님 모두 신청할 수 있습니다.\n예약하면 4자리 예약코드를 알려 드립니다. 일정 변경·취소는 [내 예약 확인]에서 학번·성명·예약코드로 할 수 있습니다.',
       contactPhone: '031-950-0107',
       contactEmail: 'jungsooj@korea.kr',
       notifyEmail: 'jungsooj@korea.kr',  // 새 예약·취소 알림 받을 주소 (쉼표로 여러 개)
@@ -148,6 +149,12 @@ var Core = (function () {
       st.version = 3;
       store.saveState(st);
     }
+    if (st.version < 4) {
+      // v4: 4자리 예약코드 도입 — 안내문을 바꾸지 않았다면 새 안내문으로
+      if (st.settings.notice === OLD_NOTICE) st.settings.notice = def.notice;
+      st.version = 4;
+      store.saveState(st);
+    }
     st.overrides = st.overrides || {};
     st.template = st.template || defaultTemplate(st.settings);
     return st;
@@ -216,12 +223,39 @@ var Core = (function () {
     return digits;
   }
 
-  function makeCode(store) {
-    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    var h = store.sha256(store.randomId() + Date.now());
-    var out = '';
-    for (var i = 0; i < 6; i++) out += chars[parseInt(h.substr(i * 2, 2), 16) % chars.length];
-    return out;
+  // 예약코드: 외우기 쉬운 숫자 4자리. 같은 학번의 다른 예약과는 겹치지 않게 한다.
+  function isPin(v) { return /^\d{4}$/.test(String(v || '')); }
+  function makeCode(store, taken) {
+    var code = '';
+    for (var i = 0; i < 20; i++) {
+      var h = store.sha256(store.randomId() + ':' + Date.now() + ':' + i);
+      code = String(parseInt(h.substr(0, 8), 16) % 10000);
+      while (code.length < 4) code = '0' + code;
+      if (!taken || taken.indexOf(code) < 0) break;
+    }
+    return code;
+  }
+  function cleanCode(v) { return String(v === undefined || v === null ? '' : v).replace(/\s/g, '').slice(0, 20); }
+
+  // 학번·성명 + 예약코드가 맞는 예정 예약 찾기.
+  // 예약코드가 생기기 전에 신청한 예약(코드가 숫자 4자리가 아님)은 예약코드 칸에 연락처를 넣어도 찾는다.
+  function findMine(store, studentId, name, code) {
+    var today = todayStr();
+    var phone = isPin(code) ? '' : normPhone(code);
+    if (!isPin(code) && !phone) return [];
+    return store.listReservations().filter(function (r) {
+      if (r.studentId !== studentId || r.name !== name || r.status === 'cancelled' || r.date < today) return false;
+      return isPin(r.code) ? r.code === code : (!!phone && r.phone === phone);
+    }).sort(function (a, b) { return (a.date + a.start) < (b.date + b.start) ? -1 : 1; });
+  }
+  function readWho(p) {
+    var who = {
+      studentId: str(p.studentId, 10).replace(/\s/g, ''),
+      name: str(p.name, 30),
+      code: cleanCode(p.code)
+    };
+    if (!who.studentId || !who.name || !who.code) fail('학번, 성명, 예약코드를 모두 입력해 주세요.');
+    return who;
   }
 
   // ---------- 조회·취소 실패 제한 ----------
@@ -242,6 +276,7 @@ var Core = (function () {
 
   function publicReservation(r) {
     return {
+      code: isPin(r.code) ? r.code : '',
       date: r.date, start: r.start, end: r.end,
       dayName: DAY_NAMES[weekday(r.date)],
       studentId: r.studentId, name: r.name, parent: r.parent,
@@ -262,23 +297,25 @@ var Core = (function () {
 
   // ---------- 담당자 알림 ----------
 
-  function notifyTeacher(store, settings, kind, r) {
+  function notifyTeacher(store, settings, kind, r, before) {
     var to = String(settings.notifyEmail || '').trim();
     if (!to || typeof store.notify !== 'function') return;
     var subject = '[봉일천고 진로진학상담] ' + kind + ' - ' + r.date + '(' + DAY_NAMES[weekday(r.date)] + ') ' + r.start + ' ' + r.name;
     var topics = (r.topics || []).slice();
     if (r.topicEtc) topics.push('직접 입력: ' + r.topicEtc);
     var body = [
-      kind === '새 예약' ? '새 상담 예약이 들어왔어요.' : '상담 예약이 취소되었어요.',
+      kind === '새 예약' ? '새 상담 예약이 들어왔어요.' : kind === '예약 변경' ? '상담 예약 일정이 바뀌었어요.' : '상담 예약이 취소되었어요.',
       '',
       '일정: ' + r.date + '(' + DAY_NAMES[weekday(r.date)] + ') ' + r.start + '~' + r.end,
+      before ? '이전 일정: ' + before.date + '(' + DAY_NAMES[weekday(before.date)] + ') ' + before.start + '~' + before.end : null,
+      '예약코드: ' + (isPin(r.code) ? r.code : '-'),
       '학번/성명: ' + r.studentId + ' ' + r.name,
       '연락처: ' + r.phone,
       '학부모 참여: ' + (r.parent ? '참여' : '불참'),
       '문의 내용: ' + topics.join(', '),
       '',
       '성적 등 자세한 내용은 관리자 화면에서 확인해 주세요.'
-    ].join('\n');
+    ].filter(function (line) { return line !== null; }).join('\n');
     try { store.notify(to, subject, body); } catch (e) { /* 알림 실패는 예약에 영향 없음 */ }
   }
 
@@ -409,7 +446,7 @@ var Core = (function () {
         var nowIso = new Date().toISOString();
         var r = {
           id: store.randomId(),
-          code: makeCode(store),
+          code: makeCode(store, active.filter(function (x) { return x.studentId === studentId; }).map(function (x) { return x.code; })),
           status: 'booked',
           date: date, start: slot.start, end: slot.end,
           studentId: studentId, name: name, phone: phone,
@@ -430,39 +467,69 @@ var Core = (function () {
       });
     },
 
+    // 학번+성명+예약코드(숫자 4자리)가 맞아야 조회
     'public.lookup': function (p, store) {
-      var studentId = str(p.studentId, 10).replace(/\s/g, '');
-      var name = str(p.name, 30);
-      var phone = normPhone(p.phone);
-      if (!studentId || !name || !phone) fail('학번, 성명, 연락처를 모두 입력해 주세요.');
-      checkFails(store, studentId);
-      var today = todayStr();
-      var list = store.listReservations().filter(function (r) {
-        return r.studentId === studentId && r.name === name && r.phone === phone && r.date >= today && r.status !== 'cancelled';
-      }).sort(function (a, b) { return (a.date + a.start) < (b.date + b.start) ? -1 : 1; });
-      if (!list.length) noteFail(store, studentId);
+      var who = readWho(p);
+      checkFails(store, who.studentId);
+      var list = findMine(store, who.studentId, who.name, who.code);
+      if (!list.length) noteFail(store, who.studentId);
       var st = getState(store);
       return { reservations: list.map(publicReservation), teacherName: st.settings.teacherName, place: st.settings.place, title: st.settings.title };
     },
 
-    // 예약번호 없이: 학번+성명+연락처 + 날짜·시각이 모두 맞아야 취소
+    // 학번+성명+예약코드 + 날짜·시각이 모두 맞아야 취소
     'public.cancel': function (p, store) {
-      var studentId = str(p.studentId, 10).replace(/\s/g, '');
-      var name = str(p.name, 30);
-      var phone = normPhone(p.phone);
+      var who = readWho(p);
       var date = str(p.date), start = str(p.start);
-      if (!studentId || !name || !phone || !date || !start) fail('예약 정보를 확인해 주세요.');
-      checkFails(store, studentId);
+      if (!date || !start) fail('예약 정보를 확인해 주세요.');
+      checkFails(store, who.studentId);
       return store.withLock(function () {
-        var r = store.listReservations().filter(function (x) {
-          return x.studentId === studentId && x.name === name && x.phone === phone &&
-            x.date === date && x.start === start && x.status !== 'cancelled';
+        var r = findMine(store, who.studentId, who.name, who.code).filter(function (x) {
+          return x.date === date && x.start === start;
         })[0];
-        if (!r) { noteFail(store, studentId); fail('예약을 찾을 수 없어요.'); }
-        if (r.date < todayStr()) fail('지난 예약은 취소할 수 없어요.');
+        if (!r) { noteFail(store, who.studentId); fail('예약을 찾을 수 없어요. 학번·성명·예약코드를 확인해 주세요.'); }
         store.updateReservation(r.id, { status: 'cancelled', memo: (r.memo ? r.memo + ' / ' : '') + '신청자 취소 ' + new Date().toISOString().slice(0, 10) });
         notifyTeacher(store, getState(store).settings, '예약 취소', r);
         return { ok: true };
+      });
+    },
+
+    // 일정 변경: 학번+성명+예약코드 + 지금 날짜·시각이 맞으면 새 날짜·시각으로 옮긴다(예약코드는 그대로)
+    'public.change': function (p, store) {
+      var who = readWho(p);
+      var date = str(p.date), start = str(p.start);
+      var newDate = str(p.newDate), newStart = str(p.newStart);
+      if (!date || !start) fail('예약 정보를 확인해 주세요.');
+      if (!parseYmd(newDate) || isNaN(toMin(newStart))) fail('바꿀 날짜와 시간을 선택해 주세요.');
+      checkFails(store, who.studentId);
+      return store.withLock(function () {
+        var r = findMine(store, who.studentId, who.name, who.code).filter(function (x) {
+          return x.date === date && x.start === start;
+        })[0];
+        if (!r) { noteFail(store, who.studentId); fail('예약을 찾을 수 없어요. 학번·성명·예약코드를 확인해 주세요.'); }
+        if (newDate === r.date && newStart === r.start) fail('지금 예약과 같은 시간이에요. 다른 시간을 골라 주세요.');
+        var st = getState(store);
+        var days = availability(st, activeReservations(store), newDate, newDate);
+        var slot = (days[newDate] || []).filter(function (x) { return x.start === newStart; })[0];
+        if (!slot) fail('선택한 시간은 예약할 수 없어요. 다른 시간을 골라 주세요.');
+        if (slot.status === 'booked') fail('앗, 방금 다른 분이 예약했어요. 다른 시간을 골라 주세요.');
+        var before = { date: r.date, start: r.start, end: r.end };
+        // 예전 예약(예약코드 없음)은 변경하면서 새 예약코드를 받는다
+        var code = isPin(r.code) ? r.code : makeCode(store, activeReservations(store).filter(function (x) { return x.studentId === r.studentId; }).map(function (x) { return x.code; }));
+        var patch = {
+          code: code, date: newDate, start: slot.start, end: slot.end,
+          memo: (r.memo ? r.memo + ' / ' : '') + '신청자 변경 ' + before.date + ' ' + before.start + '→' + newDate + ' ' + slot.start
+        };
+        store.updateReservation(r.id, patch);
+        var moved = {};
+        Object.keys(r).forEach(function (k) { moved[k] = r[k]; });
+        Object.keys(patch).forEach(function (k) { moved[k] = patch[k]; });
+        notifyTeacher(store, st.settings, '예약 변경', moved, before);
+        var out = publicReservation(moved);
+        out.teacherName = st.settings.teacherName;
+        out.place = st.settings.place;
+        out.title = st.settings.title;
+        return { reservation: out, before: before };
       });
     },
 

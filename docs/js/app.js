@@ -9,7 +9,8 @@
     view: null,        // {y,m}
     date: null,
     slot: null,
-    lastReservation: null
+    lastReservation: null,
+    change: null       // 일정 변경 중이면 { r: 지금 예약, who: {studentId,name,code} }
   };
 
   // ---------- 초기화 ----------
@@ -19,7 +20,7 @@
     try {
       var cfg = await U.api('public.config');
       S.settings = cfg.settings;
-      if (!(cfg.coreVersion >= 3)) console.warn('서버(Apps Script) 코드가 예전 버전입니다. gas/Core.gs 를 새로 붙여 넣고 새 버전으로 배포하세요.');
+      if (!(cfg.coreVersion >= 4)) console.warn('서버(Apps Script) 코드가 예전 버전입니다. gas/Core.gs 를 새로 붙여 넣고 새 버전으로 배포하세요.');
       applySettings();
       var t = U.parse(S.settings.today);
       var start = S.settings.bookingStart > S.settings.today ? U.parse(S.settings.bookingStart) : t;
@@ -129,6 +130,7 @@
         x.start + '<small>~' + x.end + ' · ' + (booked ? '마감' : on ? '선택됨' : '예약 가능') + '</small></button>';
     }).join('') : '<div class="empty-msg">이 날은 예약 가능한 시간이 없습니다.</div>';
     $('toForm').disabled = !S.slot;
+    $('toForm').textContent = S.change ? '이 시간으로 변경하기' : '다음 단계로';
   }
 
   $('slots').addEventListener('click', function (e) {
@@ -153,12 +155,14 @@
 
   $('toForm').onclick = function () {
     if (!S.slot) return;
+    if (S.change) return doChange();
     $('pickedLabel').innerHTML = U.esc(U.pretty(S.date)) + '<br><span class="nowrap">' + S.slot.start + ' ~ ' + S.slot.end + '</span>';
     goStep(2);
     setTimeout(function () { $('studentId').focus(); }, 300);
   };
   $('backToPick').onclick = function () { goStep(1); };
   $('againBtn').onclick = async function () {
+    endChange();
     S.date = null; S.slot = null;
     $('step2').reset();
     $('slotCard').classList.add('is-empty');
@@ -172,9 +176,9 @@
 
   // ---------- 신청서 ----------
   function bindForm() {
-    ['phone', 'lkPhone'].forEach(function (id) {
-      $(id).addEventListener('input', function (e) { e.target.value = U.formatPhone(e.target.value); });
-    });
+    $('phone').addEventListener('input', function (e) { e.target.value = U.formatPhone(e.target.value); });
+    // 예약코드: 숫자 4자리 (예전 예약은 연락처를 넣을 수 있어 하이픈도 허용)
+    $('lkCode').addEventListener('input', function (e) { e.target.value = e.target.value.replace(/[^\d-]/g, ''); });
     ['studentId', 'lkId'].forEach(function (id) {
       $(id).addEventListener('input', function (e) { e.target.value = e.target.value.replace(/\D/g, ''); });
     });
@@ -210,6 +214,7 @@
       try {
         var res = await U.api('public.reserve', p);
         S.lastReservation = res.reservation;
+        $('doneTitle').textContent = '상담 예약이 완료되었습니다!';
         renderTicket(res.reservation, $('ticket'));
         goStep(3);
       } catch (ex) {
@@ -232,6 +237,8 @@
     if (r.topicEtc) topics.push('직접 입력: ' + r.topicEtc);
     var place = r.place || (S.settings && S.settings.place);
     el.innerHTML =
+      (r.code ? '<div class="code-box"><span class="lbl">예약코드</span><strong>' + U.esc(r.code) + '</strong>' +
+        '<small>일정 변경·취소할 때 학번·성명과 함께 입력합니다</small></div>' : '') +
       '<div class="when">' + U.esc(U.pretty(r.date)) + '<br>' + U.esc(r.start) + ' ~ ' + U.esc(r.end) + '</div>' +
       '<dl>' +
       '<dt>학번 · 성명</dt><dd>' + U.esc(r.studentId) + ' ' + U.esc(r.name) + '</dd>' +
@@ -279,9 +286,11 @@
 
   // ---------- 내 예약 확인 ----------
   var lastLookup = null;
+  var lastList = [];
   $('lookupForm').addEventListener('submit', async function (e) {
     e.preventDefault();
-    lastLookup = { studentId: $('lkId').value.trim(), name: $('lkName').value.trim(), phone: $('lkPhone').value.trim() };
+    lastLookup = { studentId: $('lkId').value.trim(), name: $('lkName').value.trim(), code: $('lkCode').value.trim() };
+    if (!lastLookup.studentId || !lastLookup.name || !lastLookup.code) { U.toast('학번, 성명, 예약코드를 모두 입력해 주세요.', true); return; }
     await runLookup();
   });
 
@@ -290,14 +299,16 @@
     box.innerHTML = '<div class="loading"><span class="spinner"></span></div>';
     try {
       var res = await U.api('public.lookup', lastLookup);
+      lastList = res.reservations;
       if (!res.reservations.length) {
-        box.innerHTML = '<div class="card empty-msg">예정된 예약이 없습니다. 입력한 정보를 다시 확인해 주세요.</div>';
+        box.innerHTML = '<div class="card empty-msg">예정된 예약을 찾지 못했습니다. 학번·성명·예약코드를 다시 확인해 주세요.</div>';
         return;
       }
       box.innerHTML = res.reservations.map(function (r, i) {
         r.teacherName = res.teacherName; r.place = res.place;
-        return '<div class="card"><div class="ticket" id="lk' + i + '"></div>' +
-          '<button type="button" class="btn danger small" data-cancel="' + U.esc(r.date + '|' + r.start) + '">이 예약 취소하기</button></div>';
+        return '<div class="card"><div class="ticket" id="lk' + i + '"></div><div class="lk-actions">' +
+          '<button type="button" class="btn ghost small" data-change="' + i + '">일정 변경하기</button>' +
+          '<button type="button" class="btn danger small" data-cancel="' + i + '">이 예약 취소하기</button></div></div>';
       }).join('');
       res.reservations.forEach(function (r, i) { renderTicket(r, $('lk' + i)); });
     } catch (ex) {
@@ -307,6 +318,8 @@
   }
 
   $('lookupResult').addEventListener('click', async function (e) {
+    var c = e.target.closest('[data-change]');
+    if (c) return startChange(lastList[+c.dataset.change]);
     var b = e.target.closest('[data-cancel]');
     if (!b) return;
     if (b.dataset.confirm !== '1') {
@@ -316,8 +329,8 @@
     }
     b.disabled = true;
     try {
-      var ds = b.dataset.cancel.split('|');
-      await U.api('public.cancel', { date: ds[0], start: ds[1], studentId: lastLookup.studentId, name: lastLookup.name, phone: lastLookup.phone });
+      var r = lastList[+b.dataset.cancel];
+      await U.api('public.cancel', { date: r.date, start: r.start, studentId: lastLookup.studentId, name: lastLookup.name, code: lastLookup.code });
       U.toast('예약을 취소했습니다.');
       await runLookup();
       try { await loadAvailability(); renderCalendar(); } catch (e2) { /* 무시 */ }
@@ -326,6 +339,77 @@
       U.toast(ex.message, true);
     }
   });
+
+  // ---------- 일정 변경 ----------
+  function showTab(tab) {
+    Array.prototype.forEach.call(document.querySelectorAll('button[data-tab]'), function (x) { x.classList.toggle('on', x.dataset.tab === tab); });
+    $('tab-book').classList.toggle('hidden', tab !== 'book');
+    $('tab-lookup').classList.toggle('hidden', tab !== 'lookup');
+  }
+
+  async function startChange(r) {
+    if (!r) return;
+    S.change = { r: r, who: { studentId: lastLookup.studentId, name: lastLookup.name, code: lastLookup.code } };
+    S.date = null; S.slot = null;
+    $('changeFrom').textContent = U.pretty(r.date) + ' ' + r.start + '~' + r.end;
+    $('changeBar').classList.remove('hidden');
+    $('slotCard').classList.add('is-empty');
+    $('slots').innerHTML = '<div class="empty-msg">📅 먼저 달력에서 날짜를 골라 주세요.</div>';
+    $('slotTitle').textContent = '시간을 골라 주세요';
+    $('toForm').disabled = true;
+    $('toForm').textContent = '이 시간으로 변경하기';
+    showTab('book');
+    goStep(1);
+    try { await loadAvailability(); } catch (e) { /* 무시 */ }
+    renderCalendar();
+  }
+
+  function endChange() {
+    S.change = null;
+    $('changeBar').classList.add('hidden');
+    $('toForm').textContent = '다음 단계로';
+  }
+
+  $('changeCancel').onclick = function () {
+    endChange();
+    S.date = null; S.slot = null;
+    renderCalendar();
+    $('slotCard').classList.add('is-empty');
+    $('slots').innerHTML = '<div class="empty-msg">📅 먼저 달력에서 날짜를 골라 주세요.</div>';
+    $('slotTitle').textContent = '시간을 골라 주세요';
+    $('toForm').disabled = true;
+    showTab('lookup');
+  };
+
+  async function doChange() {
+    var btn = $('toForm');
+    var c = S.change;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px"></span> 변경하는 중…';
+    try {
+      var res = await U.api('public.change', {
+        studentId: c.who.studentId, name: c.who.name, code: c.who.code,
+        date: c.r.date, start: c.r.start, newDate: S.date, newStart: S.slot.start
+      });
+      // 예전 예약은 변경하면서 새 예약코드를 받으므로, 이후 조회에는 새 코드를 쓴다
+      if (res.reservation.code) lastLookup.code = res.reservation.code;
+      endChange();
+      S.lastReservation = res.reservation;
+      $('doneTitle').textContent = '일정이 변경되었습니다!';
+      renderTicket(res.reservation, $('ticket'));
+      goStep(3);
+      if (lastLookup) runLookup();
+    } catch (ex) {
+      U.toast(ex.message, true);
+      if (/다른 분이 예약|예약할 수 없어요/.test(ex.message)) {
+        try { await loadAvailability(); } catch (e2) { /* 무시 */ }
+        S.slot = null; renderCalendar(); renderSlots();
+      }
+    } finally {
+      btn.disabled = !S.slot;
+      btn.textContent = S.change ? '이 시간으로 변경하기' : '다음 단계로';
+    }
+  }
 
   init();
 })();
