@@ -145,6 +145,7 @@
   function goStep(n) {
     var t = document.getElementById('toast'); if (t) t.className = 'toast';
     $('step1').classList.toggle('hidden', n !== 1);
+    var cn = document.getElementById('classNoteTop'); if (cn) cn.classList.toggle('hidden', n !== 1);
     $('step2').classList.toggle('hidden', n !== 2);
     $('step3').classList.toggle('hidden', n !== 3);
     Array.prototype.forEach.call(document.querySelectorAll('#steps li'), function (li) {
