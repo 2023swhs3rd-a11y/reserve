@@ -367,3 +367,9 @@ table.grid th.rowh { text-align: right; white-space: nowrap; }
 .ticket .code-box small { display: block; font-size: 13px; color: var(--muted); }
 .change-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; padding: 12px 14px; border-radius: 12px; background: var(--green-soft); }
 .lk-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+/* 교과 수업 우선 안내 */
+.class-note { display:flex; gap:8px; align-items:flex-start; background:var(--yellow-soft, #fff6e0); color:#7a5a12; border-radius:12px; padding:10px 14px; margin:0 0 14px; font-size:14px; line-height:1.55; }
+.class-note .ico { font-size:16px; line-height:1.4; }
+.class-note strong { font-weight:700; }
+.class-note.in-form { margin:-4px 0 16px; }
